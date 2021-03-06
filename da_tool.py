@@ -4,8 +4,8 @@ from collections import Counter
 import argparse
 import sys
 from itertools import chain, zip_longest
-from eda_classes import Table, Column, ColumnTable, Graph, Pivot
-from eda_utils import *
+from da_classes import *
+from da_utils import *
 
 g_format='kind:x:y:hue:split_interval:is_ts:subplots'
 g_ex='bar:1:0:2:10:False:False --> Plot a bar chart(kind), with x-axis as column 1(x), y-axis from column 0(x), and group data by column2(hue). Split the graphs such that each graph has 10 values(split_interval) in x-axis, x-axis is not of time format(is_ts=False), Plot all data in 1 chart(subplots=False)'
