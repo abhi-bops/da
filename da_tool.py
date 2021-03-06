@@ -155,10 +155,13 @@ if __name__=='__main__':
     fields = args.get('fields') or args.get('com_fields')
     h1 = args.get('h1') or args.get('com_h1')
     delim = args.get('delim') or args.get('com_delim')
-    if args.get('graph') == False:
-            tograph = False
-    else:
-            tograph = True
+    #If --graph is not used, it will have the default False
+    # If only the --graph is used, it will have None
+    # If --graph 'g_options' , it will be a string
+    tograph = args.get('graph')
+    if tograph != False:
+        #Return g_options if passed otherwise true (if g_options is None)
+        tograph = tograph or True
     tocsv = args.get('tocsv') or args.get('com_tocsv')
     pipe = args.get('pipe') or args.get('com_pipe')
     rich = args.get('rich') or args.get('com_rich')
@@ -224,17 +227,19 @@ if __name__=='__main__':
     fields = get_uniq_fields(fields)
 
     #Handle graphing related steps
-    if tograph and action!='hist':
+    # If tograph is False, then the option was not selected
+    # If action is hist, no need to do anything, hist has it's own g_options setup
+    g_options = {}
+    if tograph != False and action!='hist':
         if isinstance(tograph, (str)):
             g_options = dict(zip_longest(g_format.split(':'), tograph.split(':')))
-            g_options['y'] = list(map(int, g_options['y'].split(','))) #columns for values to plot            
+            g_options['y'] = list(map(int, g_options['y'].split(','))) #columns for values to plot
+            g_options['x'] = int(g_options['x'])
             for i in ['is_ts', 'subplots']:
                 if g_options[i] == 'True':
                     g_options[i] = True
                 else:
                     g_options[i] = False
-        else:
-            g_options = {}
 
     #Creating the table object
     if action == 'pivot':
@@ -316,9 +321,10 @@ if __name__=='__main__':
         if tograph:
             title = "Graph"
             x = g_options.get('x', 0)
-            y = g_options.get('y', 1)
-            data = T.get_fields([x,y])
-            df_data = {v[0]:v[1] for _, v in data.items()}            
+            y = g_options.get('y', [1])
+            fields = [x, *y]
+            data = T.get_fields(fields)
+            df_data = {v[0]:v[1] for _, v in data.items()}
             if not g_options:
                 g_options = {'kind': 'line', 'x': 0, 'y': [1],
                              'split_interval': -1, 'is_ts': False,
