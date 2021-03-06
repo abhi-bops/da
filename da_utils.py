@@ -289,9 +289,8 @@ def get_fields(fields):
     all_fields = []
     for f in field_l:
         if '-' in f:
-            start=int(f[0])
-            end=int(f[-1])
-            all_fields += list(range(start, end+1))
+            start, _, end = f.partition('-')
+            all_fields += list(range(int(start), int(end)+1))
         elif f:
             all_fields.append(int(f))
     return all_fields
