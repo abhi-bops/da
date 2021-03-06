@@ -269,6 +269,8 @@ class Table(object):
         #Fill the headings, if there are some missing
         self.fill_heading()
         self.data, self.data_for_get_fields = tee(self.data, 2)
+        #Keep a field index map of input and output
+        self.field_map = dict(zip(self.fields, range(self.max_fields)))
 
     def add_row(self, row):
         self.data.append(row)

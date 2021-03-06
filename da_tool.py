@@ -233,8 +233,14 @@ if __name__=='__main__':
     if tograph != False and action!='hist':
         if isinstance(tograph, (str)):
             g_options = dict(zip_longest(g_format.split(':'), tograph.split(':')))
-            g_options['y'] = list(map(int, g_options['y'].split(','))) #columns for values to plot
-            g_options['x'] = int(g_options['x'])
+            if g_options['y']:
+                g_options['y'] = get_fields(g_options['y'])
+            else:
+                g_options['y'] = [1]
+            if g_options['x']:
+                g_options['x'] = int(g_options['x'])
+            else:
+                g_options['x'] = 0
             for i in ['is_ts', 'subplots']:
                 if g_options[i] == 'True':
                     g_options[i] = True
@@ -320,8 +326,23 @@ if __name__=='__main__':
                     print(T.to_ascii_table(), flush=True)        
         if tograph:
             title = "Graph"
-            x = g_options.get('x', 0)
-            y = g_options.get('y', [1])
+            #If the x-axis for the graph is passed
+            if g_options.get('x') != None:
+                #Get the fields requested (this will follow the order of the input data)
+                x = g_options['x']
+                #Get the mapping of the output of table object, this is needed for graphs
+                g_options['x'] = T.field_map[x]
+            #If it is not provided, then we will use the default order
+            else:
+                x = 0
+                g_options['x'] = 0
+            #Same action with y
+            if g_options.get('y') != None:
+                y = g_options['y']
+                g_options['y'] = [T.field_map[f] for f in y]
+            else:
+                y = [1]
+                g_options['y'] = 1
             fields = [x, *y]
             data = T.get_fields(fields)
             df_data = {v[0]:v[1] for _, v in data.items()}
