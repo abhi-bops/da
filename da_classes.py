@@ -54,7 +54,8 @@ class Graph(object):
         # Remaing ones are passed to graphs, expecting them to be graph specific
         self.x = int(kwargs.pop('x', 0)) #column for x-axis
         self.y = kwargs.pop('y', [1])
-        self.hue = kwargs.pop('hue', 1) #column to use to distinguish multiple series
+        #self.hue = kwargs.pop('hue', None) #column to use to distinguish multiple series
+        self.hue = None
         self.is_ts = kwargs.pop('is_ts', False) #If axis is a timestamp
         self.kind = kwargs.pop('kind', 'bar') #Graph type
         self.aggfunc = kwargs.pop('aggfunc', 'mean') #If multiple values for a combination of x, hue is present. Use this to aggregate 
@@ -78,15 +79,15 @@ class Graph(object):
         #Create the dataframe
         df = pd.DataFrame(data=self.data, columns=self.heading)
         self.shape = df.shape
-        #If x is passed as 0, it means index col, if it's -1 no index col
-        if self.x>=0:
+        #If the graph is not 'scatter' and x is given > 0, then treat x as index
+        if self.kind != 'scatter' and self.x>=0:
             #Get the index column out
             index = df.columns[self.x]
             df.index = df[index]
-        #Change all missing_char to nan    
+            #Select only the y columns
+            df = df.iloc[:, self.y]
+        #Change all missing_char to nan
         df.replace(self.missing_char, nan, inplace=True)
-        #Select only the y columns
-        df = df.iloc[:, self.y]
         #Change datatypes of values to float, so that plotting functions can treat them as numbers
         self.df = df.astype('float')
 
@@ -197,6 +198,12 @@ class Graph(object):
                               **kwargs)
                 ax.tick_params(axis='x', labelrotation=90)
                 ax.tick_params(axis='y', labelrotation=0)
+            elif self.kind == 'scatter':
+                split_df.plot(ax=ax,
+                              subplots=self.subplots,
+                              kind=self.kind,
+                              x=self.x,
+                              y=self.y[0])
             else:
                 split_df.plot(ax=ax,
                               logx=False,
