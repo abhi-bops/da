@@ -329,6 +329,9 @@ if __name__=='__main__':
                 g_options = {'kind': 'line', 'x': 0, 'y': [1],
                              'split_interval': -1, 'is_ts': False,
                              'subplots': False, 'title': title}
+            #If scatter plot disable splitting
+            if g_options['kind'] == 'scatter':
+                g_options['split_interval'] = -1
             g=Graph(data=df_data, **g_options)
             graphs = g.plot()
             for fig in graphs:

@@ -164,17 +164,18 @@ class Graph(object):
         #Split large data sets into small ones at index for graphing
         # If no split is given, disable splitting
         if self.split_interval == -1:
-            self.split_interval = limit #Set splitting to the max of shape
-        #If split is requested set split interval to that 
-        self.split_interval = min(self.split_interval, limit)
+            interval = limit #Set splitting to the max of shape
+        else:
+            #If split is requested set interval to that 
+            interval = min(self.split_interval, limit)
         counter = 0  #counter to limit iterations, in case any bug pops up (not the number of graphs)
         counter_limit = 20
         while limit > end and counter <= counter_limit:
             counter += 1
             if limit_type == 'columns':
-                split_df = self.df.iloc[:,start:end+self.split_interval]
+                split_df = self.df.iloc[:,start:end+interval]
             else:
-                split_df = self.df.iloc[start:end+self.split_interval,:]
+                split_df = self.df.iloc[start:end+interval,:]
             fig = Figure(figsize=(self.w, self.h))
             ax = fig.subplots()
             if self.kind == 'heatmap':
@@ -215,19 +216,20 @@ class Graph(object):
             ax.set_title(self.title)                
             fig.set_tight_layout(tight=True)
             b64 = self.to_b64(fig, self.dpi)
-            fig.clear()            
-            if len(b64) > argmax:
-                if self.split_interval <= 5:
+            fig.clear()
+            #If splitting is allowed, split the dataset
+            if self.split_interval != -1 and len(b64) > argmax:
+                if interval <= 5:
                     return []
-                self.split_interval = max(5, self.split_interval - 10)
+                interval = max(5, interval - 10)
                 start=0
                 end=0
                 continue
             graphs.append(b64)
             #Push start to new position
-            start = end+self.split_interval
+            start = end+interval
             #Push end to a new position
-            end = end+self.split_interval
+            end = end+interval
         return graphs
     
 class Table(object):
