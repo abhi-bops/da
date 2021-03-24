@@ -25,10 +25,10 @@ for f in files:
     source = inspect.getsource(f)
     #If it contains "from da", ignore that line, as we are importing
     # the code here and this will not have any dependency
-    for i in source:
-        if i.startswith('from da'):
+    for i in source.split('\n'):
+        if i.startswith('from da_'):
             continue
-        output_data += i
+        output_data += i+'\n'
 #write it to a file
 with open('da', 'w') as fd:
     fd.write(output_data)
