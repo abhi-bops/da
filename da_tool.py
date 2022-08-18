@@ -59,17 +59,19 @@ def parse_args():
               'rich': [['--rich'],
                      {'action':'store_true',
                               'help': 'fancy table printing, only works if the rich python module is installed (Does not install by default).'}]}
+
     #Set of common options to all
+    ##DISABLING commongroup options, as they are intefering with the specific options
     commongroup = parser.add_argument_group("Common options")
-    commongroup.add_argument('-h1', action='store_true', help="Indicates that the first line is a heading", default=False,
-                             dest="com_h1")
-    commongroup.add_argument('-d', '--delim', type=str, help="Delimiter to split the input fields. Default is space '%(default)s'",
-                             default=' ',
-                             metavar='delimiter',
-                             dest="com_delim")
-    commongroup.add_argument(*args_d['fields'][0], **args_d['fields'][1])
-    commongroup.add_argument('--fast', action='store_true',
-                             help='Attempts to be faster in producing the ascii table output, by pre-assuming cell widths of table. Use --width to set custom cell widths.')
+    #commongroup.add_argument('-h1', action='store_true', help="Indicates that the first line is a heading", default=False,
+    #                         dest="com_h1")
+    #commongroup.add_argument('-d', '--delim', type=str, help="Delimiter to split the input fields. Default is space '%(default)s'",
+    #                         default=' ',
+    #                         metavar='delimiter',
+    #                         dest="com_delim")
+    #commongroup.add_argument(*args_d['fields'][0], **args_d['fields'][1])
+    #commongroup.add_argument('--fast', action='store_true',
+    #                         help='Attempts to be faster in producing the ascii table output, by pre-assuming cell widths of table. Use --width to set custom cell widths.')
 
     #This set is to reflect tablegroup's options so that it can run as default
     parser.add_argument('--pipe', action='store_true', help=argparse.SUPPRESS)
@@ -88,7 +90,7 @@ def parse_args():
 
     #summary: options
     aggregategroup = actions.add_parser(name='summary', help="Similar to pandas dataframe describe(), gives a statistical summary of the result, All values are treated as continous data")
-    for i in ['delim', 'h1', 'heading', 'rich']:
+    for i in ['fields', 'delim', 'h1', 'heading', 'rich']:
         aggregategroup.add_argument(*args_d[i][0], **args_d[i][1])
 
     #hist: options
@@ -153,8 +155,6 @@ def parse_args():
 if __name__=='__main__':
     #Get all the arguments
     args = parse_args()
-    ##Common fields, prefer action's option first otherwise use the common option
-    fields = args.get('fields') or args.get('com_fields')
     h1 = args.get('h1') or args.get('com_h1')
     delim = args.get('delim') or args.get('com_delim')
     #If --graph is not used, it will have the default False
@@ -199,10 +199,13 @@ if __name__=='__main__':
     #Transform fields
     function = args.get('function')
 
+    #Handle fields
+    ##Common fields, prefer action's option first otherwise use the common option
+    fields = args.get('fields') or args.get('com_fields')
+
     #Handle field format input
     if fields:
         fields = get_fields(fields)
-
     #Getting the fields based on the actions
     if action == 'pivot':
         #If all the indices are not given, it is likely a standard sort | uniq -c result
@@ -223,6 +226,7 @@ if __name__=='__main__':
         #else fields = the transform fields
         else:
             fields = f_fields
+
     #If there were none, use the special empty list
     if fields == None:
         fields = []
