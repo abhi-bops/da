@@ -83,7 +83,7 @@ def parse_args():
     actions = parser.add_subparsers(title="Available actions (Use -h after action for more options)", metavar='', dest='action')
 
     #table; options
-    tablegroup = actions.add_parser(name='table', help="Tabulate the input fields (Default)",
+    tablegroup = actions.add_parser(name='table', help="Tabulate the input fields",
                                     description="Pretty print the input data as tables. Columns can be chosen to print. By default, all columns are printed")
     for i in ['fields', 'tocsv', 'delim', 'pipe', 'heading', 'h1', 'noheading', 'notable', 'graph', 'fast', 'rich']:
         tablegroup.add_argument(*args_d[i][0], **args_d[i][1])        
@@ -142,7 +142,9 @@ def parse_args():
     transformgroup = actions.add_parser(name='transform', help="Transform columns by running functions on them")
     for i in ['delim', 'heading', 'h1', 'noheading', 'tocsv', 'pipe', 'fields']:
         transformgroup.add_argument(*args_d[i][0], **args_d[i][1])
-    transformgroup.add_argument('--function', action="append", help="function to run on the field. 1 field and one1 action is supported. Format is fieldNumber:function:arguments. Available functions are {}. Custom functions can also be used from eda_custom_functions.py".format(transform_function_l), metavar="format")
+    transformgroup.add_argument('--function', action="append", help="""function to run on the field. one field and one action is supported. 
+    Format is fieldNumber:function:arguments. fieldNumber is based on the input field number, and numbering starts from 0. 
+    Available functions are {}. Custom functions can also be used from eda_custom_functions.py""".format(transform_function_l), metavar="format")
 
     args = vars(parser.parse_args())
     # If no options are provided, print the help
