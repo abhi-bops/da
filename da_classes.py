@@ -578,7 +578,13 @@ class Column(object):
                                                                           self.get_operand(other)))
 
     def astype(self, x, f):
-        try: return f(x)
+        try:
+            o = f(x)
+            #Address cases where string like 12e123131 creates a inf value
+            if o == float('inf'):
+                return nan
+            else:
+                return o
         except (TypeError, ValueError): return nan
 
     def __add__(self, other):

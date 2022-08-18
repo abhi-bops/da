@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import argparse
 from math import nan, ceil, floor, isnan
 from collections import Counter
