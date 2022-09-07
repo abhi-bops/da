@@ -76,7 +76,7 @@ def parse_args():
     #This set is to reflect tablegroup's options so that it can run as default
     parser.add_argument('--pipe', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--tocsv', action='store_true', help=argparse.SUPPRESS, default=None)
-    parser.add_argument('--graph', type=str, help=argparse.SUPPRESS)
+    parser.add_argument('--graph', type=str, help=argparse.SUPPRESS, default=False, nargs='?')
     #Do not include list inputs here https://stackoverflow.com/questions/35898944/python-subparser-parsing-with-nargs
     parser.add_argument('--heading', type=str, help=argparse.SUPPRESS, default=None)
     
@@ -160,8 +160,8 @@ if __name__=='__main__':
     h1 = args.get('h1') or args.get('com_h1')
     delim = args.get('delim') or args.get('com_delim')
     #If --graph is not used, it will have the default False
-    # If only the --graph is used, it will have None
-    # If --graph 'g_options' , it will be a string
+    #If only the --graph is used, it will have None
+    #If --graph 'g_options' , it will be a string
     tograph = args.get('graph')
     if tograph != False:
         #Return g_options if passed otherwise true (if g_options is None)
@@ -290,6 +290,10 @@ if __name__=='__main__':
             elif rich:
                 out = rich_print_table(T.data, T.heading)
                 print(out)
+            elif tocsv:
+                T.tocsv(disable_heading=noheading)
+            elif pipe:
+                T.pipe(disable_heading=noheading)
             else:
                 print(T.to_ascii_table())
         #Get pivotdata for graphing, no summaries

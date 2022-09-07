@@ -13,6 +13,7 @@ import os
 #Check if we have the necessary imports for graphing
 global is_graphing
 is_graphing=True
+force_install=False
 try:
     import pandas as pd, numpy as np, matplotlib, seaborn as sns
     from matplotlib.figure import Figure
@@ -31,7 +32,6 @@ try:
     sns.set(rc=params)
     #Colors are from https://www.nordtheme.com/docs/colors-and-palettes
     calmjet = matplotlib.colors.LinearSegmentedColormap.from_list("", [ "#d8dee9","#81a1c1", "#a3be8c", "#bf616a"])
-
 except ImportError:
     if force_install:
         pandas_check = check_module('pandas', install=True)
@@ -442,7 +442,7 @@ class Table(object):
         for line in self.data:
             print(delim.join(map(lambda x:str(x), line)), flush=True) 
 
-    def tocsv(self):
+    def tocsv(self, disable_heading=False):
         self.pipe(delim=',')
 
     def sort(self):
@@ -874,4 +874,16 @@ class Pivot(Table):
 
     def get_summarydata(self):
         return self.summarydata
+
+    def pipe(self, delim=' ', disable_heading=False):
+        """Pipe result to stdut, with fields separated by delim"""
+        #Print the heading first
+        if not disable_heading:
+            print(delim.join(self.heading))
+        #Print the data next
+        for line in self.data:
+            print(delim.join(map(lambda x:str(x), line)), flush=True) 
+
+    def tocsv(self, disable_heading=False):
+        self.pipe(delim=',')
 
