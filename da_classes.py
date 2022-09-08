@@ -1,5 +1,5 @@
 import fileinput
-from math import nan, ceil, floor, isnan
+from math import nan, ceil, floor, isnan, inf
 from itertools import tee, starmap, repeat
 import statistics as stats
 from collections import defaultdict, Counter
@@ -37,7 +37,8 @@ except ImportError:
         pandas_check = check_module('pandas', install=True)
         matplotlib_check = check_module('matplotlib', install=True)
         seaborn_check = check_module('seaborn', install=True)
-        if pandas_check and matplotlib_check and seaborn_check and numpy:
+        numpy_check = check_module('seaborn', install=True)
+        if pandas_check and matplotlib_check and seaborn_check and numpy_check:
             import pandas as pd, matplotlib, seaborn as sns
             from matplotlib.figure import Figure
             import matplotlib.ticker as ticker #For formatting log scales            
@@ -559,6 +560,7 @@ class Column(object):
             f = 'subtract'
         #If the function is in a list of known internal functions
         if f in self.fmap:
+            #Run that function by passing that param
             self.data = list(self.fmap[f](other))
         #If it's not a defined function internally
         else:
@@ -597,7 +599,8 @@ class Column(object):
         return self.transform(lambda a,b: a*b, other)
 
     def __div__(self, other):
-        return self.transform(lambda a,b: a/b, other)
+        #Address ZeroDivisionError issues
+        return self.transform(lambda a,b: a/b if b!=0 else inf, other)
 
     def __floordiv__(self, other):
         return self.transform(lambda a,b: a//b, other)

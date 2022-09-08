@@ -6,7 +6,7 @@ import base64 #For image base64 code
 import shlex 
 import subprocess
 from importlib import import_module
-from itertools import chain
+from itertools import chain, zip_longest
 from collections import defaultdict
 
 def check_module(module_name, install=False):
@@ -233,30 +233,47 @@ def f_aggfunc(data, aggfunc, need_sort=False):
     return None
 
 def get_transform_req(t_input):
-    #formatting pattern for the transform request
-    t_format = 'fieldN:func:params|chain_func:params2=alias'
-    #fieldN -> field number on which the transformation will be done
-    #function:params -> first pass transformation and parameters to the function
-    #|chain_func:params -> second pass transformation and parameters to the function.
-    #                      can be multiple functions separated by "|"
-    #=alias -> column name to use
+    """
+    ???
+
+    t_input is a list of patterned transform inputs, each item is optin passed from --function input
+
+    Formatting pattern for the transform request
+        t_format is 'fieldN:func:params|chain_func:params2=alias'
+        fieldN -> field number on which the transformation will be done
+        func -> Function to apply
+        params -> if it stats with f, the next digit is considered as field number 
+        fieldN:func:params -> generates a result of func(fieldN, params)
+        |chain_func:params -> (optional) multiple function can be chained using |
+        =alias -> (optional) use it at last to name the resulting column
+
+    """
     
     #Append transform actions in order into the list
     t_list = []
     #t_input is a list of transform requests in the format t_format
     # translate that into a list of dictionaries with options abd values as key-value pairs
     for t_req in t_input:
+        #Get the alias
         t_req, sep, t_alias = t_req.partition('=')
+        #Split the chain of functions, one-by-one
         t_req, sep, t_chain = t_req.partition('|')
-        chain_l = []        
+        #chain_l will have each piece of chain added as dictionary key-value pair
+        # func, params, is_field (True/False ... if param is a field number)
+        chain_l = []
+        #If there is a chained function, get the actions to do       
         if t_chain:
             sep = '|'
             chain_fmt = 'func:params'
+            #loop until all functiosn in the chain are accounted for
             while sep:
+                #Get the first piece of chain (chain_1)
                 chain_1, sep, chain_2 = t_chain.partition('|')
+                #Store the func and param
                 chain_d = dict(zip_longest(chain_fmt.split(':'), chain_1.split(':')))
                 #The params option can be a field value, or a constant.
                 if chain_d['params'].startswith('f'):
+                    #Get the field number
                     chain_d['params'] = int(chain_d['params'][1:])
                     chain_d['is_field']= True
                 else:
@@ -264,11 +281,16 @@ def get_transform_req(t_input):
                     chain_d['is_field'] = False
                 chain_l.append(chain_d)
                 t_chain = chain_2
+        #Handle the first piece of chain
+        # 0 -> field
+        # 1 -> action/function
+        # 2 -> parameter to the function
         t_options = dict(enumerate(t_req.split(':')))
         #Check for each option and ensure it has a default value
         fields = [int(t_options.get(0, '0').strip('f'))]
         func = t_options.get(1, None)
-        params = t_options.get(2, '1')        #The last option can be a field value, or a constant.
+        params = t_options.get(2, '1')        
+        #The last option can be a field value, or a constant
         if params.startswith('f'):
             params = int(params[1:])
             is_field= True

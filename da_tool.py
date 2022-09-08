@@ -217,8 +217,12 @@ if __name__=='__main__':
             valueind=0
         fields = list([rowind, columnind, valueind])
     if action == 'transform':
+        #Parse the transform function string
+        # each --function param is a item in t_list
         t_list = get_transform_req(function)
+        #f1->field numnber to start the operation on 
         f1 = chain.from_iterable([f['fields'] for f in t_list])
+        #f2->if the param is a field, get the field numner
         f2 = [f['params'] for f in t_list if f['is_field']]
         #Get the fields that are used in the transform
         f_fields = list(set(chain(f1, f2)))
@@ -413,13 +417,19 @@ if __name__=='__main__':
         for pk, pv in pTable.items():
             pCol = Column(pv[1], name=pv[0], categorical=True)
             tTable.add(pCol)
+        #Each item in t_list is the parsed transform string of --function input
+        # which defines the actions to follow 
         for t in t_list:
-            #Get the column name, or use dummy name
-            name = t.get('alias', '{}({},{})'.format(t['func'],
-                                                     'a', 'b'))
+            #Not needed: Get the column name, or use dummy name created by the function-name and (a,b) 
+            #name = t.get('alias', '{}({},{})'.format(t['func'],
+            #                                         'a', 'b'))
+
             #If param is a number, use it, if it's a field, get the Column object of that field
-            t['params'] = t['params'] if not t['is_field'] else Column(pTable[t['fields'][0]][1], name=pTable[t['fields'][0]][0])
-            #Hack to check if it is a categorical column
+            if t['is_field']:
+                t['params'] = Column(pTable[t['params']][1], name=pTable[t['params']][0])
+            else:
+                t['params'] = t['params']
+            # Hack to check if it is a categorical column
             #Check if 'params' can be converted into float
             categorical = False
             if not t['is_field']:            
@@ -438,22 +448,34 @@ if __name__=='__main__':
                 param_name = t['params'].name
             else:
                 param_name = t['params']
+            #If column name is not defined, create one of the format func(a,b)
+            # a is field/col name
+            # b can be param of field/col name
             if t['alias'] == '':
                 t['alias'] = '{}({},{})'.format(t['func'],
                                                  pTable[t['fields'][0]][0],
                                                  param_name)
+            #Create the column
+            #pTable(fieldN) -> gets the data
+            # fieldN is the field on which we start the transformation
             tCol = Column(pTable[t['fields'][0]][1],
                           name=t['alias'],
                           categorical=categorical)
-            #Apply transform
+            #Apply transform to the column
             tCol.apply_transform(t['func'],
                                  params)
             #If there is a chain function, follow the same process as above one-after-another
             if t['chain']:
                 for c in t['chain']:
-                    c['params'] = c['params'] if not c['is_field'] else Column(pTable[c['fields'][0]][1])
+                    #If param is a number, use it, if it's a field, get the Column object of that field
+                    if c['is_field']:
+                        c['params'] = Column(pTable[c['params']][1])
+                    else:
+                        c['params'] = c['params']
                     tCol.apply_transform(c['func'], c['params'])
+            #Add the transformed columns into the table
             tTable.add(tCol)
+        #output formatting
         if pipe:
             tTable.pipe(disable_heading=noheading)
         elif tocsv:
