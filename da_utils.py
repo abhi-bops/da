@@ -10,6 +10,10 @@ from itertools import chain, zip_longest
 from collections import defaultdict
 
 def check_module(module_name, install=False):
+    """
+    Check if the module exists in the system. If it exists, return True, else return False.
+    If install=True is passed, module is installed using pip (download and install, needs curl) and then return True
+    """
     try: 
         import_module(module_name)
     except ModuleNotFoundError:
@@ -24,7 +28,7 @@ def check_module(module_name, install=False):
             o = curldl.communicate()
             if o[1] != None:
                 return False
-            pipinstall = subprocess.Popen("{}/.local/bin/pip3 install {}".format(home, module).split(' '))
+            pipinstall = subprocess.Popen("{}/.local/bin/pip3 install {}".format(home, module_name).split(' '))
             if o[1] != None:
                 return False
             return True
@@ -54,7 +58,7 @@ def is_empty(figure):
 
 def to_b64(fig, dpi=100):
     """
-    Convert the png image file into base64 encoded data
+    Convert the matplotlib figure object into base64 encoded data. For use in HTML as base64 encoded images.
     
     Input
     -----
@@ -82,31 +86,6 @@ def get_argmax():
     o = command.communicate()
     return int(o[0].decode('utf-8').strip('\n'))
     
-##Custom functions for transform
-def f_share(data, other=None):
-    total = sum(filter(None, map(convert_float, data)))
-    out = []
-    for i in data:
-        try:
-            share = round(float(i)/total, 2)
-            if other=='g':
-                width = 20
-                barlength = int(width*share)
-                share = '{:>5} |{:<{width}}'.format(str(share),"o"*barlength, width=width)
-            out.append(share)
-        except ValueError:
-            out.append('-')
-    return out
-
-def f_cumsum(data, other=None):
-    sum_tmp = 0
-    out = []
-    for i in data:
-        sum_tmp += i        
-        out.append(sum_tmp)
-        print(i, sum_tmp)
-    return out
-
 ## Helpful functions
 def convert_float(x):
     """
@@ -234,8 +213,6 @@ def f_aggfunc(data, aggfunc, need_sort=False):
 
 def get_transform_req(t_input):
     """
-    ???
-
     t_input is a list of patterned transform inputs, each item is optin passed from --function input
 
     Formatting pattern for the transform request
@@ -248,7 +225,6 @@ def get_transform_req(t_input):
         =alias -> (optional) use it at last to name the resulting column
 
     """
-    
     #Append transform actions in order into the list
     t_list = []
     #t_input is a list of transform requests in the format t_format
@@ -426,6 +402,7 @@ def get_result(data, minv=None, maxv=None, count=20, bin_size=None, bins=[]):
     i_old = bin_min-1
     return bin_d
 
+#Pretty printing data using the "rich" module
 def rich_print_table(data, heading, repeat_heading=50, title=None, table_out=False, justify={0: 'left'}):
     rich_check = check_module('rich', install=False)
     if rich_check:
@@ -482,9 +459,7 @@ def rich_print_layout(rows, columns, data_l):
     with console.capture() as capture:
             console.print(layout)
     str_output = capture.get()
-    print(str_output)
-
-    
+    print(str_output)    
     return layout
         
 

@@ -1,3 +1,5 @@
+from da_utils import *
+
 def dummyfunctionfortransform(data, param):
     """
     data is a list of values
@@ -6,4 +8,32 @@ def dummyfunctionfortransform(data, param):
     Define functions here that can be used in transform command
     """
     out = [str(i) + str(param) for i in data]
+    print(out)
+    return out
+
+##Custom functions for transform
+def share(data, other=None):
+    """
+    """
+    total = sum(filter(None, map(convert_float, data)))
+    out = []
+    for i in data:
+        try:
+            share = round(float(i)/total, 2)
+            if other=='g':
+                width = 20
+                barlength = int(width*share)
+                share = '{:>5} |{:<{width}}'.format(str(share),"o"*barlength, width=width)
+            out.append(share)
+        except ValueError:
+            out.append('-')
+    return out
+
+def cumsum(data, other=None):
+    sum_tmp = 0
+    out = []
+    for i in data:
+        sum_tmp += i        
+        out.append(sum_tmp)
+        print(i, sum_tmp)
     return out

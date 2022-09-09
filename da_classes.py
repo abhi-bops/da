@@ -8,6 +8,7 @@ from warnings import filterwarnings
 filterwarnings('ignore')
 import re
 from da_utils import *
+import da_custom
 import os
 
 #Check if we have the necessary imports for graphing
@@ -564,13 +565,15 @@ class Column(object):
             self.data = list(self.fmap[f](other))
         #If it's not a defined function internally
         else:
-            #If function is defined under the global namespace, eval the function
-            if f in globals():
-                f = eval(f)
-                self.data = f(self.data, other)
-            else:
-                #Otherwise just let the user know
+            #Check if the function is in the da_custom file
+            if not hasattr(globals()['da_custom'], f):
+                #if it is not, print it to screen and return None
                 print("{} does not exist".format(f))
+                #self.data = fillna(self.data)
+                return None
+            #If the function was found evaluate it, and update the column's data 
+            f = eval('da_custom.{}'.format(f))
+            self.data = f(self.data, other)
 
     def transform(self, f, other):
         #Create a mapping for function and data to apply on
