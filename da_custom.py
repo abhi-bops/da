@@ -1,4 +1,5 @@
 from da_utils import *
+from math import nan
 
 def dummyfunctionfortransform(data, param):
     """
@@ -14,8 +15,11 @@ def dummyfunctionfortransform(data, param):
 ##Custom functions for transform
 def share(data, other=None):
     """
+    Compute share of each value of the column over the sum of values in the column
     """
-    total = sum(filter(None, map(convert_float, data)))
+    #Ignore invalid data (i.e data that cannot converted into float)
+    valid_data = filter(None, map(convert_float, data))
+    total = sum([i for i in valid_data if not isnan(i)])
     out = []
     for i in data:
         try:
@@ -30,10 +34,15 @@ def share(data, other=None):
     return out
 
 def cumsum(data, other=None):
+    """
+    Compute cumulative sum at each row-value of the column
+    """
     sum_tmp = 0
     out = []
     for i in data:
+        if isnan(i):
+            out.append(nan)
+            continue
         sum_tmp += i        
         out.append(sum_tmp)
-        print(i, sum_tmp)
     return out
