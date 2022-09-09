@@ -179,6 +179,10 @@ def f_aggfunc(data, aggfunc, need_sort=False):
         return data[-1]
     if aggfunc == 'concat':
         return ' '.join(data)
+    #Moving count up before the nan's are filtered so that group action
+    # gives the count of all rows
+    if aggfunc == 'count':
+        return len(data)
     #Handle aggfunc is None, return the first data point
     if not aggfunc:
         return data[0]
@@ -197,8 +201,6 @@ def f_aggfunc(data, aggfunc, need_sort=False):
         return min(data)
     if aggfunc == 'sum':
         return round(sum(data), 2)
-    if aggfunc == 'count':
-        return len(data)
     if aggfunc in ('mean', 'average', 'avg'):
         return round(sum(data)/len(data), 2)
     if aggfunc in ('median', 'p50'):

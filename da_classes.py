@@ -526,9 +526,10 @@ class Column(object):
                      'le': self.__le__,
                      'eq': self.__eq__,
                      'mod': self.__mod__,
-                     'sample': self.f_sample,
-                     'dummy': self.f_dummy
-        }
+                     'dummy': self.f_dummy,
+                     'subtract_from': self.f_subtract_from,
+                     'concat': self.f_concat
+                    }
 
     def set_column_name(self, name):
         self.name = name
@@ -552,12 +553,6 @@ class Column(object):
         f -> function to run
         other -> params to pass into the function
         """
-        if f:
-            self.data = self.data
-        #Hack for subtract_from        
-        if f == 'subtract_from':
-            self.data = self.__neg__()
-            f = 'subtract'
         #If the function is in a list of known internal functions
         if f in self.fmap:
             #Run that function by passing that param
@@ -580,6 +575,9 @@ class Column(object):
         # b-> parameter for the function to use on a
         return starmap(lambda a,b:f(a,b) if (a and b)!=None else nan, zip(self.data,
                                                                           self.get_operand(other)))
+
+    def f_concat(self, other):
+        return starmap(lambda a,b:str(a)+'_'+str(b), zip(self.data_as_categorical, other.data_as_categorical))
 
     def astype(self, x, f):
         try:
@@ -610,8 +608,8 @@ class Column(object):
     def __mod__(self, other):
         return self.transform(lambda a,b: a%b, other)
 
-    def f_sample(self, other):
-        return self.transform(lambda a,b: a-(a%b), other)
+    def f_subtract_from(self, other):
+        return self.transform(lambda a,b: b-a, other)
 
     def __neg__(self):
         return self.__mul__(-1)
@@ -702,6 +700,94 @@ class Column(object):
             result.append(['least', Ctr.most_common()[-1][0]])
 
         return dtype, result
+
+class Group(Table):
+    def __init__(self, row_k=1, val_k=None, f=None,
+                 src=None, delim=' ', heading=None, data=None,
+                 max_fields=0, h1=False, fields=None,
+                 missing_char='-'):
+        """
+        Creating a copy from pivot table, need to remove stuff that is not needed
+        """
+        self.row_k = row_k
+        self.col_k = None
+        #If val_k is passed we will need to use that column
+        if val_k != None:
+            self.val_k = val_k
+        #Otherwise we need to use some statistical summary
+        else:
+            pass
+        self.aggfunc = f
+        #Get the function initialised with the super init
+        super().__init__(src, delim, heading, data,
+                         max_fields, h1, fields,
+                         missing_char)
+    
+    def group(self):
+        """Group is for grouping and summarising data for row ind key using data from valueind"""
+        #row pointer as the result will be got from the table in the order r, c, v
+        # The order comes from da_tool when handling fields needed for table creation    
+        rp = 0 
+        vp = 1
+        #group_d will create a dictionary, with key as the row-index
+        # and values is the list of values for that row-index
+        group_d = defaultdict(list)
+        #Row_v will hold the keys of the row-index
+        row_v = set()
+        for d in self.data:
+            #Get the row index, if it's None, use nan
+            row_v.add(d[rp] or nan)
+            #Get the values in a list for each rowindex, if it's None use nan
+            group_d[d[rp]].append(d[vp] or nan)
+        #Making row_v into a list and sort it
+        row_v = sorted(list(row_v))
+        group_data = []
+        for row in row_v:
+            cells = []
+            for f in self.aggfunc:
+                cell = f_aggfunc(group_d[row], f, need_sort=True) or self.missing_char
+                cells.append(cell)
+            group_data.append([row] + cells)
+        self.data = group_data
+        self.groupdata = group_data
+        #Set the heading of the first column of the new table
+        # self.heading has the names colX, colY ...
+        # where X, Y are the field numbers from the input file
+        self.heading = ['({})'.format(self.heading[rp])]
+        self.heading += self.aggfunc
+        self.groupheading = self.heading
+
+    def __repr__(self):
+        return 'Group: delim="{}", heading={}, fields={}, aggfunc={}'.format(self.delim, self.heading, self.fields, ','.join(self.aggfunc))
+
+    def to_ascii_table(self):
+        #Intialise summary_rows as 0
+        summary_rows = 0
+        #If we have column key, that means, we are using the proper pivot
+        # get the summary rows as the length of the summary function list
+        # AND colsummary is TRUE
+        if self.col_k and self.colsummary:
+            summary_rows = len(self.summaryfunc)
+        return super().to_ascii_table(heading_border=True,
+                                      summary=summary_rows)
+
+    def get_groupdata(self):
+        return {'data': self.groupdata, 'heading': self.groupheading}
+
+    def get_summarydata(self):
+        return self.summarydata
+
+    def pipe(self, delim=' ', disable_heading=False):
+        """Pipe result to stdut, with fields separated by delim"""
+        #Print the heading first
+        if not disable_heading:
+            print(delim.join(self.heading))
+        #Print the data next
+        for line in self.data:
+            print(delim.join(map(lambda x:str(x), line)), flush=True) 
+
+    def tocsv(self, disable_heading=False):
+        self.pipe(delim=',')
     
 class Pivot(Table):
     def __init__(self, row_k=1, col_k=2, val_k=None, f=None, summary=False,
@@ -740,38 +826,11 @@ class Pivot(Table):
                          max_fields, h1, fields,
                          missing_char)
 
-    def pivot2(self):
-        """Pivot2 is for grouping and summarising data for row ind key using data from valueind.
-        It does not need colind
-        """
-        rp = 0
-        cp = 1
-        vp = 2
-        pivot_d = defaultdict(list)
-        row_v = set()
-        for d in self.data:
-            #Get the row index, if it's None, use nan
-            row_v.add(d[rp] or nan)
-            #Get the values in a list for each rowindex, colindex, if it's None use 0
-            pivot_d[d[rp]].append(d[vp] or 0)
-        #Making row_v into a list and sort it
-        row_v = sorted(list(row_v))
-        pivot_data = []
-        for row in row_v:
-            cells = []
-            for f in self.summaryfunc:
-                cell = f_aggfunc(pivot_d[row], f, need_sort=True) or self.missing_char
-                cells.append(cell)
-            pivot_data.append([row] + cells)
-        self.heading = ['({})'.format(self.heading[self.val_k])]
-        self.heading += self.summaryfunc
-        self.pivotheading = self.heading
-        self.data = pivot_data
-        self.pivotdata = pivot_data
-
     def pivot(self):
         """Pivot on row index and column index with an aggregation function applied on value index"""
-        rp = 0 #row pointer as the result will be got from the table in the order r, c, v
+        #row pointer as the result will be got from the table in the order r, c, v
+        # The order comes from da_tool when handling fields needed for table creation    
+        rp = 0 
         cp = 1
         vp = 2
         row_v = set()
@@ -807,7 +866,11 @@ class Pivot(Table):
         #Rest heading, Construct pivot heading using the parent Table's heading
         self.row_v = row_v
         self.col_v = col_v
-        self.heading = ['{}({})'.format(self.aggfunc, self.heading[self.val_k])]
+        #Set the heading of the first column of the pivot table
+        # self.heading has the names colX, colY, colZ  ...
+        # where X, Y, Z are the field numbers from the input file
+        # and the order is by rp, cp, vp
+        self.heading = ['{}({}/{})'.format(self.aggfunc, self.heading[rp], self.heading[cp])]
         self.heading += self.col_v
         self.pivotheading = self.heading
         #Reset max_fields

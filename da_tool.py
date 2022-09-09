@@ -134,17 +134,30 @@ def parse_args():
     pivotgroup.add_argument('--colsummary', action='store_true',
                             help="Only print the column summary, default is to print both column and row summaries",
                             default=False)
-    
+
+    #group: options
+    groupgroup = actions.add_parser(name='group', help="Group the input data",
+                                    description="Group the input data by creating row and column indices and computing the value for each using input fields.")
+    for i in ['delim', 'heading', 'h1', 'notable', 'rich', 'graph', 'tocsv', 'pipe']:
+        groupgroup.add_argument(*args_d[i][0], **args_d[i][1])
+    groupgroup.add_argument('-r', '--rowind', type=int, help="Position of the data that needs to be used as row index. Starts from 0",
+                            metavar='N',
+                            default=None)
+    groupgroup.add_argument('-v', '--valueind', type=int, help="Position of data that needs to be added as value to use on the cell. Starts from 0.", default=None, metavar='N')
+    groupgroup.add_argument('--aggfunc', nargs="+", type=str, help="Agg function to use if there are multiple values for the row x column combination. Default is %(default)s",
+                            choices=['first', 'last', 'concat', 'max', 'min', 'sum', 'count', 'mean', 'median', 'stdev'],
+                            default=['count', 'sum', 'mean'])
+
     #transform: options
     transform_function_l = ['add', 'divide', 'div', 'floordiv', 'subtract', 'sub',
                             'multiply', 'mul', 'gt', 'lt', 'ge', 'le', 'eq', 'mod',
-                            'dummy', 'sample']
+                            'sample', 'concat']
     transformgroup = actions.add_parser(name='transform', help="Transform columns by running functions on them")
     for i in ['delim', 'heading', 'h1', 'noheading', 'tocsv', 'pipe', 'fields']:
         transformgroup.add_argument(*args_d[i][0], **args_d[i][1])
     transformgroup.add_argument('--function', action="append", help="""function to run on the field. one field and one action is supported. 
     Format is fieldNumber:function:arguments. fieldNumber is based on the input field number, and numbering starts from 0. 
-    Available functions are {}. Custom functions can also be used from eda_custom_functions.py""".format(transform_function_l), metavar="format")
+    In-built functions are {}. Custom functions from da_custom.py can also be used""".format(transform_function_l), metavar="format")
 
     args = vars(parser.parse_args())
     # If no options are provided, print the help
@@ -216,6 +229,9 @@ if __name__=='__main__':
             columnind=2
             valueind=0
         fields = list([rowind, columnind, valueind])
+    #Add the row and value index to the fields
+    if action == "group":
+        fields = list([rowind, valueind])
     if action == 'transform':
         #Parse the transform function string
         # each --function param is a item in t_list
@@ -277,18 +293,32 @@ if __name__=='__main__':
                   val_k=valueind, f=aggfunc, summary=summary,
                   heading=heading, summaryf=summaryf, rowsummary=rowsummary,
                   colsummary=colsummary)
+    elif action == 'group':
+        T = Group(src='-', delim=delim, fields=fields, h1=h1,
+                  row_k=rowind, val_k=valueind, f=aggfunc, 
+                  heading=heading)
     else:
         T = Table(src='-', delim=delim, fields=fields, h1=h1, heading=heading)
 
     #Actions to do
+    if action == 'group':
+        T.group()
+        if not notable:
+            if fast:
+                print(T.fast_ascii_table())
+            elif rich:
+                out = rich_print_table(T.data, T.heading)
+                print(out)
+            elif tocsv:
+                T.tocsv(disable_heading=noheading)
+            elif pipe:
+                T.pipe(disable_heading=noheading)
+            else:
+                print(T.to_ascii_table())
+        pass
     #Pivoting
     if action == 'pivot':
-        #If only column ind is not given, it is pivot and summary for each row combination, so use pivot2
-        if columnind == None:
-            T.pivot2()
-        #Else standard pivoting using pivot
-        else:
-            T.pivot()
+        T.pivot()
         if not notable:
             if fast:
                 print(T.fast_ascii_table())
