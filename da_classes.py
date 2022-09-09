@@ -757,8 +757,10 @@ class Group(Table):
         #Set the heading of the first column of the new table
         # self.heading has the names colX, colY ...
         # where X, Y are the field numbers from the input file
+        # and the order is by rp, cp, vp
+        self.aggfuncheading = [i+'({})'.format(self.heading[vp]) for i in self.aggfunc]
         self.heading = ['({})'.format(self.heading[rp])]
-        self.heading += self.aggfunc
+        self.heading += self.aggfuncheading 
         self.groupheading = self.heading
 
     def __repr__(self):
