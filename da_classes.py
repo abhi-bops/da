@@ -7,8 +7,10 @@ from collections import defaultdict, Counter
 from warnings import filterwarnings
 filterwarnings('ignore')
 import re
+#Importing from da_* should be from da_* import *
+# so that get_daflat.py can ignore and the functions are in global scope
 from da_utils import *
-import da_custom
+from da_custom import *
 import os
 
 #Check if we have the necessary imports for graphing
@@ -318,9 +320,6 @@ class Table(object):
             #Generate field list
             yield info
 
-    def add_to_column(self, ):
-        pass
-    
     def impute_missing(self, lines):
         """Impute missing values on the dataset"""
         #Iterate over each line, find if the total fields in that line < max_fields
@@ -565,15 +564,15 @@ class Column(object):
             self.data = list(self.fmap[f](other))
         #If it's not a defined function internally
         else:
-            #Check if the function is in the da_custom file
-            if not hasattr(globals()['da_custom'], f):
+            #If function is defined under the global namespace, eval the function
+            # and update column's data
+            if f in globals():
+                f = eval(f)
+                self.data = f(self.data, other)
+            else:
                 #if it is not, print it to screen and return None
                 print("{} does not exist".format(f))
-                #self.data = fillna(self.data)
                 return None
-            #If the function was found evaluate it, and update the column's data 
-            f = eval('da_custom.{}'.format(f))
-            self.data = f(self.data, other)
 
     def transform(self, f, other):
         #Create a mapping for function and data to apply on
@@ -766,6 +765,7 @@ class Pivot(Table):
             pivot_data.append([row] + cells)
         self.heading = ['({})'.format(self.heading[self.val_k])]
         self.heading += self.summaryfunc
+        self.pivotheading = self.heading
         self.data = pivot_data
         self.pivotdata = pivot_data
 

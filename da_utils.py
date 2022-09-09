@@ -265,13 +265,14 @@ def get_transform_req(t_input):
         #Check for each option and ensure it has a default value
         fields = [int(t_options.get(0, '0').strip('f'))]
         func = t_options.get(1, None)
-        params = t_options.get(2, '1')        
-        #The last option can be a field value, or a constant
+        #Set parameter as empty string if it does not exist.
+        # converting it as a string, so that it allows to compare if it's a field later
+        params = t_options.get(2, '')    
+        #Check if it's a field or a number
         if params.startswith('f'):
             params = int(params[1:])
             is_field= True
         else:
-            #params = float(params)
             is_field = False
         t_list.append({'fields': fields, 'func': func, 'params': params, 'is_field': is_field, 'alias': t_alias, 'chain': chain_l})
     return t_list

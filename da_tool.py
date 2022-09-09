@@ -31,7 +31,7 @@ def parse_args():
                                       'default': None}],
               'delim': [['-d', '--delim'], {'type': str,
                                             'help': "Delimiter to split the input fields. Default is space '%(default)s'",
-                                            'default': None,
+                                            'default': ' ',
                                             'metavar': 'delimiter',
                                             'dest': "delim"}],
               'pipe': [['--pipe'], {'action': 'store_true',
@@ -260,6 +260,7 @@ if __name__=='__main__':
                     g_options[i] = False
 
     #Creating the table object
+    #handle pivot separately, rest is default Table object
     if action == 'pivot':
         if summaryf:
             summaryf = [f.strip() for f in summaryf.split(',')]
@@ -283,7 +284,7 @@ if __name__=='__main__':
     #Pivoting
     if action == 'pivot':
         #If only column ind is not given, it is pivot and summary for each row combination, so use pivot2
-        if not columnind:
+        if columnind == None:
             T.pivot2()
         #Else standard pivoting using pivot
         else:

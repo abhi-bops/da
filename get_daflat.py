@@ -16,11 +16,13 @@ header = """#!/usr/bin/python3
 import da_utils
 import da_classes
 import da_tool
+import da_custom
 
 #We need the shebang line and the header line on top
 output_data = header
 #Add source code of each file
-files = [da_utils, da_classes, da_tool]
+# da_custom should be at first, as the transform custom functions need to be in global scope
+files = [da_custom, da_utils, da_classes, da_tool]
 for f in files:
     source = inspect.getsource(f)
     #If it contains "from da", ignore that line, as we are importing
