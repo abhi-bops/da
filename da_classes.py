@@ -600,7 +600,7 @@ class Column(object):
 
     def __div__(self, other):
         #Address ZeroDivisionError issues
-        return self.transform(lambda a,b: a/b if b!=0 else inf, other)
+        return self.transform(lambda a,b: round(a/b, 3) if b!=0 else inf, other)
 
     def __floordiv__(self, other):
         return self.transform(lambda a,b: a//b, other)
@@ -690,12 +690,16 @@ class Column(object):
             result.append(['count', size])
             cumsum = 0
             topN = []
+            #get the share of the top5 repeating items
             for x in Ctr.most_common()[:5]:
-                cumsum += x[1]*100/size
-                topN.append(round(cumsum, 2))
+                #Cumsum updates cumulative share, disabling it for now
+                #cumsum += x[1]*100/size
+                #topN.append(round(cumsum, 2))
+                count = x[1]*100/size
+                topN.append(round(count, 2))
             topN += ['-']*(5-len(topN))
             for n, i in enumerate(topN, 1):
-                result.append(['top{}'.format(n), '{}'.format(i)])
+                result.append(['top{}share'.format(n), '{}'.format(i)])
             result.append(['most', Ctr.most_common()[0][0]])
             result.append(['least', Ctr.most_common()[-1][0]])
 
