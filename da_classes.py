@@ -1,6 +1,6 @@
 import fileinput
 from math import nan, ceil, floor, isnan, inf
-from itertools import tee, starmap, repeat
+from itertools import tee, starmap, repeat, zip_longest
 import statistics as stats
 from collections import defaultdict, Counter
 #Ignore warnings that are thrown by matplotlib/pandas
@@ -452,14 +452,26 @@ class Table(object):
     def filterrows(self):
         pass
 
+    def transpose(self):
+        """
+        Convert rows to columns
+        """
+        data = transpose_rows(list(self.data))
+        T = Table(data=data[1:], heading=data[0], max_fields=0)
+        return T
+
+
 class ColumnTable(Table):
     """
     A object with multiple columns as its members
     """
-    def __init__(self, data=[], name='Table', heading=[]):
+    def __init__(self, data=[], name='Table', heading=None):
         self.name = name
         self.cdata = data
-        self.heading = heading
+        if heading == None:
+            self.heading = []
+        else:
+            self.heading = heading            
         self.data = []
 
     def add(self, data=[], cname='col'):
@@ -759,7 +771,7 @@ class Group(Table):
         # where X, Y are the field numbers from the input file
         # and the order is by rp, cp, vp
         self.aggfuncheading = [i+'({})'.format(self.heading[vp]) for i in self.aggfunc]
-        self.heading = ['({})'.format(self.heading[rp])]
+        self.heading = ['group({})'.format(self.heading[rp])]
         self.heading += self.aggfuncheading 
         self.groupheading = self.heading
 

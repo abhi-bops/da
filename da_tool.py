@@ -86,7 +86,10 @@ def parse_args():
     tablegroup = actions.add_parser(name='table', help="Tabulate the input fields",
                                     description="Pretty print the input data as tables. Columns can be chosen to print. By default, all columns are printed")
     for i in ['fields', 'tocsv', 'delim', 'pipe', 'heading', 'h1', 'noheading', 'notable', 'graph', 'fast', 'rich']:
-        tablegroup.add_argument(*args_d[i][0], **args_d[i][1])        
+        tablegroup.add_argument(*args_d[i][0], **args_d[i][1])    
+    tablegroup.add_argument('--transpose', action="store_true",
+                            help="Transpose the table",
+                            default=False)   
 
     #summary: options
     aggregategroup = actions.add_parser(name='summary', help="Similar to pandas dataframe describe(), gives a statistical summary of the result, All values are treated as continous data")
@@ -193,6 +196,7 @@ if __name__=='__main__':
     action = args.get('action') 
     #Table fields
     fast = args.get('fast')
+    transpose = args.get('transpose')
     #Hist fields
     minv = args.get('minv')
     maxv = args.get('maxv')
@@ -350,6 +354,8 @@ if __name__=='__main__':
 
     #Simple ASCII Table
     if not action or action == 'table':
+        if transpose:
+            T = T.transpose()
         if not notable:
             if pipe:
                 T.pipe(disable_heading=noheading)
