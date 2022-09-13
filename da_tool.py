@@ -146,10 +146,13 @@ def parse_args():
     groupgroup.add_argument('-r', '--rowind', type=int, help="Position of the data that needs to be used as row index. Starts from 0",
                             metavar='N',
                             default=None)
-    groupgroup.add_argument('-v', '--valueind', type=int, help="Position of data that needs to be added as value to use on the cell. Starts from 0.", default=None, metavar='N')
+    groupgroup.add_argument('-v', '--valueind', nargs="+", type=int, help="Position of data that needs to be added as value to use on the cell. Starts from 0.", default=None, metavar='N')
     groupgroup.add_argument('--aggfunc', nargs="+", type=str, help="Agg function to use if there are multiple values for the row x column combination. Default is %(default)s",
                             choices=['first', 'last', 'concat', 'max', 'min', 'sum', 'count', 'mean', 'median', 'stdev'],
                             default=['count', 'sum', 'mean'])
+    #groupgroup.add_argument('--aggfunc', action="append", help="""function to run on the field. one field and one action is supported. 
+    #Format is fieldNumber:function1,function2. fieldNumber is based on the input field number, and numbering starts from 0. 
+    #Available functions are {}""".format(transform_function_l), metavar="format")
 
     #transform: options
     transform_function_l = ['add', 'divide', 'div', 'floordiv', 'subtract', 'sub',
@@ -235,7 +238,7 @@ if __name__=='__main__':
         fields = list([rowind, columnind, valueind])
     #Add the row and value index to the fields
     if action == "group":
-        fields = list([rowind, valueind])
+        fields = list([rowind, *valueind])
     if action == 'transform':
         #Parse the transform function string
         # each --function param is a item in t_list
