@@ -718,14 +718,17 @@ class Column(object):
         return dtype, result
 
 class Group(Table):
-    def __init__(self, row_k=1, val_k=None, f=None,
+    def __init__(self, row_k=None, val_k=None, f=None,
                  src=None, delim=' ', heading=None, data=None,
                  max_fields=0, h1=False, fields=None,
                  missing_char='-'):
         """
         Creating a copy from pivot table, need to remove stuff that is not needed
         """
-        self.row_k = row_k
+        if row_k == None:
+            self.row_k = [1]
+        else:
+            self.row_k = row_k
         #If val_k is passed we will need to use that column
         if val_k != None:
             self.val_k = val_k
@@ -742,19 +745,22 @@ class Group(Table):
         """Group is for grouping and summarising data for row ind key using data from valueind"""
         #row pointer as the result will be got from the table in the order r, c, v
         # The order comes from da_tool when handling fields needed for table creation    
-        rp = 0 
-        vp = list(range(1, len(self.fields)))
+        rp = len(self.row_k)
+        vp = list(range(rp, len(self.fields)))
         #group_d will create a dictionary, with key as the row-index
         # and values is the list of values for that row-index
-        group_d = {1: defaultdict(list), 2: defaultdict(list), 3: defaultdict(list)}
+        group_d = defaultdict(dict)
+        for v in vp:
+            group_d[v] = defaultdict(list)
         #Row_v will hold the keys of the row-index
         row_v = set()
         for d in self.data:
             #Get the row index, if it's None, use nan
-            row_v.add(d[rp] or nan)
+            row_v.add(tuple(d[:rp]) or nan)
             #Get the values in a list for each rowindex, if it's None use nan
             for v in vp:
-                group_d[v][d[rp]].append(d[v] or nan)
+                r_key = tuple(d[:rp])
+                group_d[v][r_key].append(d[v] or nan)
         #Making row_v into a list and sort it
         row_v = sorted(list(row_v))
         group_data = []
@@ -766,54 +772,21 @@ class Group(Table):
                     cell = f_aggfunc(group_d[v][row], f, need_sort=True) or self.missing_char
                     cells.append(cell)
                 row_data += cells
-            group_data.append([row] + row_data)
+            #group_data.append([row] + row_data)
+            group_data.append(list(row) + row_data)
         self.data = group_data
         self.groupdata = group_data
         #Set the heading of the first column of the new table
         # self.heading has the names colX, colY ...
         # where X, Y are the field numbers from the input file
         # and the order is by rp, cp, vp
-        self.groupheading = ['group({})'.format(self.heading[rp])]
+        self.groupheading = []
+        for i in range(rp):
+            self.groupheading += ['group({})'.format(self.heading[i])]
         for v in vp:
             self.aggfuncheading = [i+'({})'.format(self.heading[v]) for i in self.aggfunc]
             self.groupheading += self.aggfuncheading 
         self.heading = self.groupheading
-
-    def group2(self):
-        """Group is for grouping and summarising data for row ind key using data from valueind"""
-        #row pointer as the result will be got from the table in the order r, c, v
-        # The order comes from da_tool when handling fields needed for table creation    
-        rp = 0 
-        vp = 1
-        #group_d will create a dictionary, with key as the row-index
-        # and values is the list of values for that row-index
-        group_d = defaultdict(list)
-        #Row_v will hold the keys of the row-index
-        row_v = set()
-        for d in self.data:
-            #Get the row index, if it's None, use nan
-            row_v.add(d[rp] or nan)
-            #Get the values in a list for each rowindex, if it's None use nan
-            group_d[d[rp]].append(d[vp] or nan)
-        #Making row_v into a list and sort it
-        row_v = sorted(list(row_v))
-        group_data = []
-        for row in row_v:
-            cells = []
-            for f in self.aggfunc:
-                cell = f_aggfunc(group_d[row], f, need_sort=True) or self.missing_char
-                cells.append(cell)
-            group_data.append([row] + cells)
-        self.data = group_data
-        self.groupdata = group_data
-        #Set the heading of the first column of the new table
-        # self.heading has the names colX, colY ...
-        # where X, Y are the field numbers from the input file
-        # and the order is by rp, cp, vp
-        self.aggfuncheading = [i+'({})'.format(self.heading[vp]) for i in self.aggfunc]
-        self.heading = ['group({})'.format(self.heading[rp])]
-        self.heading += self.aggfuncheading 
-        self.groupheading = self.heading
 
     def __repr__(self):
         return 'Group: delim="{}", heading={}, fields={}, aggfunc={}'.format(self.delim, self.heading, self.fields, ','.join(self.aggfunc))

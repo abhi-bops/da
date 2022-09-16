@@ -143,7 +143,7 @@ def parse_args():
                                     description="Group the input data by creating row and column indices and computing the value for each using input fields.")
     for i in ['delim', 'heading', 'h1', 'notable', 'rich', 'graph', 'tocsv', 'pipe']:
         groupgroup.add_argument(*args_d[i][0], **args_d[i][1])
-    groupgroup.add_argument('-r', '--rowind', type=int, help="Position of the data that needs to be used as row index. Starts from 0",
+    groupgroup.add_argument('-r', '--rowind', nargs="+", type=int, help="Position of the data that needs to be used as row index. Starts from 0",
                             metavar='N',
                             default=None)
     groupgroup.add_argument('-v', '--valueind', nargs="+", type=int, help="Position of data that needs to be added as value to use on the cell. Starts from 0.", default=None, metavar='N')
@@ -238,7 +238,7 @@ if __name__=='__main__':
         fields = list([rowind, columnind, valueind])
     #Add the row and value index to the fields
     if action == "group":
-        fields = list([rowind, *valueind])
+        fields = list([*rowind, *valueind])
     if action == 'transform':
         #Parse the transform function string
         # each --function param is a item in t_list
@@ -322,7 +322,7 @@ if __name__=='__main__':
                 T.pipe(disable_heading=noheading)
             else:
                 print(T.to_ascii_table())
-        pass
+
     #Pivoting
     if action == 'pivot':
         T.pivot()

@@ -66,8 +66,6 @@ def f_formatunixtime(data, other="%H:%M:%S"):
         other="%H:%M:%S"
     out = []
     for i in data:
-        print(i)
-        print(other)
         #Try to convert it to float value, if it is not - use as is
         try:
             i = float(i)
