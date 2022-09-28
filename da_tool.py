@@ -35,7 +35,12 @@ def parse_args():
                                             'metavar': 'delimiter',
                                             'dest': "delim"}],
               'pipe': [['--pipe'], {'action': 'store_true',
-                                    'help': "Pipe data to output"}],
+                                    'help': "Pipe data to output with delim as space ' '"}],
+              'pipewith': [['--pipewith'], {'type': str,
+                                    'help': "Pipe data to output with the delim",
+                                    'default': None,
+                                    'metavar': 'delimiter',
+                                    'dest': 'pipewith'}],
               'heading': [['--heading'], {'type': str,
                                           'help': "Custom heading to use, separate headings with comma (,). Missing ones will have colN ... N->field number", 'default': None}],
               'h1': [['-h1'], {'action': 'store_true',
@@ -48,7 +53,7 @@ def parse_args():
                                       'nargs': '?'
                                       }],
               'noheading': [['--noheading'], {'action': 'store_true',
-                                              'help': 'Disables printing of heading on output when used with pipe/tocsv options. Useful if the data needs to passed into sort,uniq command',
+                                              'help': 'Disables printing of heading on output when used with pipe/pipewith options. Useful if the data needs to passed into sort,uniq commands',
                                               'default': False}],
               'notable': [['--notable'], {'action': 'store_true',
                                               'help': 'Disables printing of data on output. Useful if the tograph is used and the data is not needed.',
@@ -59,19 +64,6 @@ def parse_args():
               'rich': [['--rich'],
                      {'action':'store_true',
                               'help': 'fancy table printing, only works if the rich python module is installed (Does not install by default).'}]}
-
-    #Set of common options to all
-    ##DISABLING commongroup options, as they are intefering with the specific options
-    commongroup = parser.add_argument_group("Common options")
-    #commongroup.add_argument('-h1', action='store_true', help="Indicates that the first line is a heading", default=False,
-    #                         dest="com_h1")
-    #commongroup.add_argument('-d', '--delim', type=str, help="Delimiter to split the input fields. Default is space '%(default)s'",
-    #                         default=' ',
-    #                         metavar='delimiter',
-    #                         dest="com_delim")
-    #commongroup.add_argument(*args_d['fields'][0], **args_d['fields'][1])
-    #commongroup.add_argument('--fast', action='store_true',
-    #                         help='Attempts to be faster in producing the ascii table output, by pre-assuming cell widths of table. Use --width to set custom cell widths.')
 
     #This set is to reflect tablegroup's options so that it can run as default
     parser.add_argument('--pipe', action='store_true', help=argparse.SUPPRESS)
@@ -85,7 +77,7 @@ def parse_args():
     #table; options
     tablegroup = actions.add_parser(name='table', help="Tabulate the input fields",
                                     description="Pretty print the input data as tables. Columns can be chosen to print. By default, all columns are printed")
-    for i in ['fields', 'tocsv', 'delim', 'pipe', 'heading', 'h1', 'noheading', 'notable', 'graph', 'fast', 'rich']:
+    for i in ['fields', 'tocsv', 'delim', 'pipe', 'pipewith', 'heading', 'h1', 'notable', 'graph', 'fast', 'rich']:
         tablegroup.add_argument(*args_d[i][0], **args_d[i][1])    
     tablegroup.add_argument('--transpose', action="store_true",
                             help="Transpose the table",
@@ -115,7 +107,7 @@ def parse_args():
     #pivot: options
     pivotgroup = actions.add_parser(name='pivot', help="Pivot the input data",
                                     description="Pivot the input data by creating row and column indices and computing the value for each using input fields.")
-    for i in ['delim', 'heading', 'h1', 'notable', 'rich', 'graph', 'tocsv', 'pipe']:
+    for i in ['delim', 'heading', 'h1', 'notable', 'rich', 'graph', 'tocsv', 'pipe', 'pipewith']:
         pivotgroup.add_argument(*args_d[i][0], **args_d[i][1])
     pivotgroup.add_argument('-r', '--rowind', type=int, help="Position of the data that needs to be used as row index. Starts from 0",
                             metavar='N',
@@ -141,7 +133,7 @@ def parse_args():
     #group: options
     groupgroup = actions.add_parser(name='group', help="Group the input data",
                                     description="Group the input data by creating row and column indices and computing the value for each using input fields.")
-    for i in ['delim', 'heading', 'h1', 'notable', 'rich', 'graph', 'tocsv', 'pipe']:
+    for i in ['delim', 'heading', 'h1', 'notable', 'rich', 'graph', 'tocsv', 'pipe', 'pipewith', 'noheading']:
         groupgroup.add_argument(*args_d[i][0], **args_d[i][1])
     groupgroup.add_argument('-r', '--rowind', nargs="+", type=int, help="Position of the data that needs to be used as row index. Starts from 0",
                             metavar='N',
@@ -159,7 +151,7 @@ def parse_args():
                             'multiply', 'mul', 'gt', 'lt', 'ge', 'le', 'eq', 'mod',
                             'sample', 'concat']
     transformgroup = actions.add_parser(name='transform', help="Transform columns by running functions on them")
-    for i in ['delim', 'heading', 'h1', 'noheading', 'tocsv', 'pipe', 'fields']:
+    for i in ['delim', 'heading', 'h1', 'tocsv', 'pipe', 'pipewith', 'fields', 'noheading']:
         transformgroup.add_argument(*args_d[i][0], **args_d[i][1])
     transformgroup.add_argument('--function', action="append", help="""function to run on the field. one field and one action is supported. 
     Format is fieldNumber:function:arguments. fieldNumber is based on the input field number, and numbering starts from 0. 
@@ -176,8 +168,8 @@ def parse_args():
 if __name__=='__main__':
     #Get all the arguments
     args = parse_args()
-    h1 = args.get('h1') or args.get('com_h1')
-    delim = args.get('delim') or args.get('com_delim')
+    h1 = args.get('h1') 
+    delim = args.get('delim') 
     #If --graph is not used, it will have the default False
     #If only the --graph is used, it will have None
     #If --graph 'g_options' , it will be a string
@@ -185,15 +177,26 @@ if __name__=='__main__':
     if tograph != False:
         #Return g_options if passed otherwise true (if g_options is None)
         tograph = tograph or True
-    tocsv = args.get('tocsv') or args.get('com_tocsv')
-    pipe = args.get('pipe') or args.get('com_pipe')
-    rich = args.get('rich') or args.get('com_rich')
-    heading = args.get('heading') or args.get('com_heading')
+    tocsv = args.get('tocsv') 
+    #Check if delims for output are passed
+    pipewith = args.get('pipewith') #There will be a delimter here
+    pipe = args.get('pipe') #A True or False (delim=space)
+    #Assign the right delim, pipewith delim is preferred over ' '
+    if pipewith:
+        pipe = pipewith
+    #if pipe option is passed
+    elif pipe:
+        pipe = ' '
+    #If pipe or pipewith is not passed, don't pipe the output
+    else:
+        pipe = False
+    rich = args.get('rich')
+    heading = args.get('heading') 
     #If heading is provided, it will be comma separated, split at commas
     if heading:
         heading = heading.split(',')
-    noheading = args.get('noheading') or args.get('com_noheading')
-    notable = args.get('notable') or args.get('com_notable')
+    noheading = args.get('noheading')
+    notable = args.get('notable')
 
     #Action to do
     action = args.get('action') 
@@ -223,7 +226,7 @@ if __name__=='__main__':
 
     #Handle fields
     ##Common fields, prefer action's option first otherwise use the common option
-    fields = args.get('fields') or args.get('com_fields')
+    fields = args.get('fields')
 
     #Handle field format input
     if fields:
@@ -319,7 +322,7 @@ if __name__=='__main__':
             elif tocsv:
                 T.tocsv(disable_heading=noheading)
             elif pipe:
-                T.pipe(disable_heading=noheading)
+                T.pipe(disable_heading=noheading, delim=pipe)
             else:
                 print(T.to_ascii_table())
 
@@ -335,7 +338,7 @@ if __name__=='__main__':
             elif tocsv:
                 T.tocsv(disable_heading=noheading)
             elif pipe:
-                T.pipe(disable_heading=noheading)
+                T.pipe(disable_heading=noheading, delim=pipe)
             else:
                 print(T.to_ascii_table())
         #Get pivotdata for graphing, no summaries
@@ -361,7 +364,7 @@ if __name__=='__main__':
             T = T.transpose()
         if not notable:
             if pipe:
-                T.pipe(disable_heading=noheading)
+                T.pipe(disable_heading=noheading, delim=pipe)
             elif tocsv:
                 T.tocsv(disable_heading=noheading)
             elif fast:
@@ -517,7 +520,7 @@ if __name__=='__main__':
             tTable.add(tCol)
         #output formatting
         if pipe:
-            tTable.pipe(disable_heading=noheading)
+            tTable.pipe(disable_heading=noheading, delim=pipe)
         elif tocsv:
             tTable.tocsv(disable_heading=noheading)
         else:
