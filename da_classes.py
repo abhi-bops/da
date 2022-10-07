@@ -1,6 +1,6 @@
 import fileinput
 from math import nan, ceil, floor, isnan, inf
-from itertools import tee, starmap, repeat, zip_longest
+from itertools import tee, starmap, repeat, zip_longest, groupby
 import statistics as stats
 from collections import defaultdict, Counter
 #Ignore warnings that are thrown by matplotlib/pandas
@@ -237,19 +237,21 @@ class Graph(object):
         return graphs
     
 class Table(object):
-    columns = []
     def __init__(self, src=None, delim=' ', heading=None, data=None,
                  max_fields=0, h1=False, fields=None,
                  missing_char='-'):
+        #Input field delimiter
         self.delim = delim
+        #Use a flag to track if first line is heading
         self.h1 = h1
         #if 1st line is not heading, use the heading provided, default is []
         if heading:
             self.heading = heading
         else:
             self.heading = []
-        self.max_fields = max_fields
-        self.missing_char = '-'
+        self.max_fields = max_fields #???
+        #Character will be used to impute missing data
+        self.missing_char = missing_char
         #Check if fields are passed, we only need to filter data from those
         if isinstance(fields, str):
             self.fields = list(map(lambda x:int(x.strip()), fields.split(',')))
@@ -348,7 +350,11 @@ class Table(object):
             self.heading=self.heading[:self.max_fields]
 
     def get_fields(self, fieldN=None):
-        """Return field name and data"""
+        """Return field name and data. Gets the input as columnar data.
+        Dictionary 
+        {field_number0: [heading_name, [row1, row2]],
+         field_number1: ...}
+        """
         #If no fields is passed to get_fields
         if not fieldN:
             #Check if we have fields populated from object
@@ -459,7 +465,6 @@ class Table(object):
         data = transpose_rows(list(self.data))
         T = Table(data=data[1:], heading=data[0], max_fields=0)
         return T
-
 
 class ColumnTable(Table):
     """
@@ -714,9 +719,145 @@ class Column(object):
                 result.append(['top{}share'.format(n), '{}'.format(i)])
             result.append(['most', Ctr.most_common()[0][0]])
             result.append(['least', Ctr.most_common()[-1][0]])
-
         return dtype, result
 
+
+class Topn(Table):
+    def __init__(self, row_k=None, top_k=None, val_k=None, f=None,
+                 src=None, delim=' ', heading=None, data=None,
+                 max_fields=0, h1=False, fields=None,
+                 missing_char='-', n=5):
+        """
+        Creating a copy from pivot table, need to remove stuff that is not needed
+        """
+        if row_k == None:
+            self.row_k = [1]
+        else:
+            self.row_k = row_k
+        #If val_k is passed we will need to use that column
+        if val_k != None:
+            self.val_k = val_k
+        #Otherwise we need to use some statistical summary
+        else:
+            pass
+        self.top_k = top_k
+        self.n = n
+        self.aggfunc = f
+        self.row_k.append(*self.top_k)
+        #Get the function initialised with the super init
+        super().__init__(src, delim, heading, data,
+                         max_fields, h1, fields,
+                         missing_char)
+
+    def get_topn(self):
+        group_d, group_k = self.create_groups()
+        group_data = self.process_groups(group_d, group_k)
+        topn_d = {}
+        for row, data in groupby(group_data, key=lambda x:x[0]):
+            topn = sorted(data, key=lambda x:x[-1], reverse=True)[:self.n]
+            topn_d[row] = list(map(lambda x:'{}({})'.format(x[1], x[2]), topn))
+            topn_items = len(topn_d[row]) 
+            if topn_items < self.n:
+                for i in range(topn_items, self.n):
+                    topn_d[row].append('-')
+        data = self.flatten_d(topn_d)
+        self.data = data
+        self.heading = [self.heading[self.row_k[0]]]
+        self.heading += ['top{}'.format(i) for i in range(1, self.n+1)]
+
+    def flatten_d(self, d):
+        flat_l = []
+        for k in d:
+            flat_l.append([k, *d[k]])
+        return flat_l
+        
+    def create_groups(self):
+        """Group is for grouping and summarising data for row ind key using data from valueind"""
+        #row pointer as the result will be got from the table in the order r, c, v
+        # The order comes from da_tool when handling fields needed for table creation    
+        self.rp = len(self.row_k)
+        self.vp = list(range(self.rp, len(self.fields)))
+        #group_d will create a dictionary, with key as the row-index
+        # and values is the list of values for that row-index
+        group_d = defaultdict(dict)
+        for v in self.vp:
+            group_d[v] = defaultdict(list)
+        #group_k will hold the keys of the row-index
+        group_k = set()
+        for d in self.data:
+            #Get the row index, if it's None, use nan
+            group_k.add(tuple(d[:self.rp]) or nan)
+            #Get the values in a list for each rowindex, if it's None use nan
+            for v in self.vp:
+                r_key = tuple(d[:self.rp])
+                group_d[v][r_key].append(d[v] or nan)
+        return group_d, group_k
+
+    def process_groups(self, group_d, group_k):
+        """
+        group_d: has the data for each group
+        group_k: Keys or the grouped items from which group_d can be accessed
+        """
+        #Process the groups and print the grouped results
+        #Making group_k into a list and sort it
+        group_k = sorted(list(group_k))
+        group_data = []
+        for row in group_k:
+            row_data = []
+            for v in self.vp:
+                cells = []
+                for f in self.aggfunc:
+                    cell = f_aggfunc(group_d[v][row], f, need_sort=True) or self.missing_char
+                    cells.append(cell)
+                row_data += cells
+            group_data.append(list(row) + row_data)
+        return group_data
+
+    def create_group_heading(self):
+        #Set the heading of the first column of the new table
+        # self.heading has the names colX, colY ...
+        # where X, Y are the field numbers from the input file
+        # and the order is by rp, cp, vp
+        groupheading = []
+        for i in range(self.rp):
+            groupheading += ['group({})'.format(self.heading[i])]
+        for v in self.vp:
+            aggfuncheading = [i+'({})'.format(self.heading[v]) for i in self.aggfunc]
+            groupheading += aggfuncheading 
+        return groupheading
+
+    def group(self):
+        group_d, group_k = self.create_groups()
+        self.data = self.process_groups(group_d, group_k)
+        self.heading = self.create_group_heading()
+
+    def __repr__(self):
+        return 'Group: delim="{}", heading={}, fields={}, aggfunc={}'.format(self.delim, self.heading, self.fields, ','.join(self.aggfunc))
+
+    def to_ascii_table(self):
+        #Intialise summary_rows as 0
+        summary_rows = 0
+        return super().to_ascii_table(heading_border=True,
+                                      summary=summary_rows)
+
+    def get_groupdata(self):
+        return {'data': self.groupdata, 'heading': self.groupheading}
+
+    def get_summarydata(self):
+        return self.summarydata
+
+    def pipe(self, delim=' ', disable_heading=False):
+        """Pipe result to stdut, with fields separated by delim"""
+        #Print the heading first
+        if not disable_heading:
+            print(delim.join(self.heading))
+        #Print the data next
+        for line in self.data:
+            print(delim.join(map(lambda x:str(x), line)), flush=True) 
+
+    def tocsv(self, disable_heading=False):
+        self.pipe(delim=',', disable_heading=disable_heading)
+    
 class Group(Table):
     def __init__(self, row_k=None, val_k=None, f=None,
                  src=None, delim=' ', heading=None, data=None,
@@ -740,7 +881,7 @@ class Group(Table):
         super().__init__(src, delim, heading, data,
                          max_fields, h1, fields,
                          missing_char)
-    
+
     def create_groups(self):
         """Group is for grouping and summarising data for row ind key using data from valueind"""
         #row pointer as the result will be got from the table in the order r, c, v

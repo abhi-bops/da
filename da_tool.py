@@ -131,7 +131,7 @@ def parse_args():
                             default=False)
 
     #group: options
-    groupgroup = actions.add_parser(name='group', help="Group the input data",
+    groupgroup = actions.add_parser(name='group', help="Group the input data by a column and run agg functions on the grouped data",
                                     description="Group the input data by creating row and column indices and computing the value for each using input fields.")
     for i in ['delim', 'heading', 'h1', 'notable', 'rich', 'graph', 'tocsv', 'pipe', 'pipewith', 'noheading']:
         groupgroup.add_argument(*args_d[i][0], **args_d[i][1])
@@ -141,10 +141,29 @@ def parse_args():
     groupgroup.add_argument('-v', '--valueind', nargs="+", type=int, help="Position of data that needs to be added as value to use on the cell. Starts from 0.", default=None, metavar='N')
     groupgroup.add_argument('--aggfunc', nargs="+", type=str, help="Agg function to use if there are multiple values for the row x column combination. Default is %(default)s",
                             choices=['first', 'last', 'concat', 'max', 'min', 'sum', 'count', 'mean', 'median', 'stdev'],
-                            default=['count', 'sum', 'mean'])
+                            default=['count'])
     #groupgroup.add_argument('--aggfunc', action="append", help="""function to run on the field. one field and one action is supported. 
     #Format is fieldNumber:function1,function2. fieldNumber is based on the input field number, and numbering starts from 0. 
     #Available functions are {}""".format(transform_function_l), metavar="format")
+
+    #topn: options
+    topngroup = actions.add_parser(name='topn', help="Select topn results by aggfunction",
+                                    description="Group the input data by creating row and column indices and computing the value for each using input fields.")
+    for i in ['delim', 'heading', 'h1', 'notable', 'rich', 'graph', 'tocsv', 'pipe', 'pipewith', 'noheading']:
+        topngroup.add_argument(*args_d[i][0], **args_d[i][1])
+    topngroup.add_argument('-n', type=int, help="How many of topn to show",
+                            metavar='N',
+                            default=5)   
+    topngroup.add_argument('-r', '--rowind', nargs="+", type=int, help="Position of the data that needs to be used as row index. Starts from 0",
+                            metavar='N',
+                            default=None)
+    topngroup.add_argument('-t', '--topind', nargs="+", type=int, help="Position of the data that needs to be used as row index. Starts from 0",
+                            metavar='N',
+                            default=None)
+    topngroup.add_argument('-v', '--valueind', nargs="+", type=int, help="Position of data that needs to be added as value to use on the cell. Starts from 0.", default=None, metavar='N')
+    topngroup.add_argument('--aggfunc', nargs="+", type=str, help="Agg function to use if there are multiple values for the row x column combination. Default is %(default)s",
+                            choices=['first', 'last', 'concat', 'max', 'min', 'sum', 'count', 'mean', 'median', 'stdev'],
+                            default=['count'])
 
     #transform: options
     transform_function_l = ['add', 'divide', 'div', 'floordiv', 'subtract', 'sub',
@@ -163,7 +182,6 @@ def parse_args():
         parser.print_help()
         sys.exit(-1)
     return args
-
 
 if __name__=='__main__':
     #Get all the arguments
@@ -220,7 +238,11 @@ if __name__=='__main__':
     summaryf = args.get('summaryf')
     rowsummary = args.get('rowsummary')
     colsummary = args.get('colsummary')
-    
+
+    #topn fields
+    topind = args.get('topind')
+    n = args.get('n')
+
     #Transform fields
     function = args.get('function')
 
@@ -242,6 +264,8 @@ if __name__=='__main__':
     #Add the row and value index to the fields
     if action == "group":
         fields = list([*rowind, *valueind])
+    if action == "topn":
+        fields = list([*rowind, *topind, *valueind])
     if action == 'transform':
         #Parse the transform function string
         # each --function param is a item in t_list
@@ -307,12 +331,31 @@ if __name__=='__main__':
         T = Group(src='-', delim=delim, fields=fields, h1=h1,
                   row_k=rowind, val_k=valueind, f=aggfunc, 
                   heading=heading)
+    elif action == 'topn':
+        T = Topn(src='-', delim=delim, fields=fields, h1=h1,
+                  row_k=rowind, val_k=valueind, f=aggfunc, 
+                  heading=heading, top_k=topind, n=n)
     else:
         T = Table(src='-', delim=delim, fields=fields, h1=h1, heading=heading)
 
     #Actions to do
     if action == 'group':
         T.group()
+        if not notable:
+            if fast:
+                print(T.fast_ascii_table())
+            elif rich:
+                out = rich_print_table(T.data, T.heading)
+                print(out)
+            elif tocsv:
+                T.tocsv(disable_heading=noheading)
+            elif pipe:
+                T.pipe(disable_heading=noheading, delim=pipe)
+            else:
+                print(T.to_ascii_table())
+
+    if action == 'topn':
+        T.get_topn()
         if not notable:
             if fast:
                 print(T.fast_ascii_table())
