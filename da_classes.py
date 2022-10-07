@@ -239,9 +239,11 @@ class Graph(object):
 class Table(object):
     def __init__(self, src=None, delim=' ', heading=None, data=None,
                  max_fields=0, h1=False, fields=None,
-                 missing_char='-'):
+                 missing_char='-', skip_rows=0):
         #Input field delimiter
         self.delim = delim
+        #To Skip rows
+        self.skip_rows = skip_rows
         #Use a flag to track if first line is heading
         self.h1 = h1
         #if 1st line is not heading, use the heading provided, default is []
@@ -284,6 +286,9 @@ class Table(object):
     def build_table_from_source(self):
         #Read the source
         self.src_data = self.get_input()
+        #Skip rows
+        for i in range(0, self.skip_rows):
+            next(self.src_data)            
         #If the first line is heading, pop it out
         if self.h1:
             self.heading = next(self.src_data)
@@ -726,7 +731,7 @@ class Topn(Table):
     def __init__(self, row_k=None, top_k=None, val_k=None, f=None,
                  src=None, delim=' ', heading=None, data=None,
                  max_fields=0, h1=False, fields=None,
-                 missing_char='-', n=5):
+                 missing_char='-', n=5, skip_rows=0):
         """
         Creating a copy from pivot table, need to remove stuff that is not needed
         """
@@ -747,7 +752,7 @@ class Topn(Table):
         #Get the function initialised with the super init
         super().__init__(src, delim, heading, data,
                          max_fields, h1, fields,
-                         missing_char)
+                         missing_char, skip_rows)
 
     def get_topn(self):
         group_d, group_k = self.create_groups()
@@ -862,7 +867,7 @@ class Group(Table):
     def __init__(self, row_k=None, val_k=None, f=None,
                  src=None, delim=' ', heading=None, data=None,
                  max_fields=0, h1=False, fields=None,
-                 missing_char='-'):
+                 missing_char='-', skip_rows=0):
         """
         Creating a copy from pivot table, need to remove stuff that is not needed
         """
@@ -880,7 +885,7 @@ class Group(Table):
         #Get the function initialised with the super init
         super().__init__(src, delim, heading, data,
                          max_fields, h1, fields,
-                         missing_char)
+                         missing_char, skip_rows)
 
     def create_groups(self):
         """Group is for grouping and summarising data for row ind key using data from valueind"""
@@ -973,7 +978,7 @@ class Pivot(Table):
     def __init__(self, row_k=1, col_k=2, val_k=None, f=None, summary=False,
                  src=None, delim=' ', heading=None, data=None,
                  max_fields=0, h1=False, fields=None,
-                 missing_char='-', summaryf=None, rowsummary=True, colsummary=True):
+                 missing_char='-', summaryf=None, rowsummary=True, colsummary=True, skip_rows=0):
         """
         - Get the necessary arguments for Pivot table, rest are passed as kwargs for Table
         - The defaults are set in line with the results of the commong output of 
@@ -1004,7 +1009,7 @@ class Pivot(Table):
         #Get the function initialised with the super init
         super().__init__(src, delim, heading, data,
                          max_fields, h1, fields,
-                         missing_char)
+                         missing_char, skip_rows)
 
     def pivot(self):
         """Pivot on row index and column index with an aggregation function applied on value index"""
@@ -1135,4 +1140,3 @@ class Pivot(Table):
 
     def tocsv(self, disable_heading=False):
         self.pipe(delim=',')
-

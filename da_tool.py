@@ -46,6 +46,9 @@ def parse_args():
               'h1': [['-h1'], {'action': 'store_true',
                                'help': "Indicates that the first line is a heading",
                                'default': False}],
+              'skip_rows': [['--skip-rows'], {'type': int,
+                                              'help': 'Skip rows',
+                                              'default': 0}],
               'graph': [['--graph'], {'type': str,
                                       'help': "Graph the data (experimental), information is of format - {}. ex: {}. If format is not passed, a default format is assumed".format(g_format, g_ex),
                                       'metavar': 'GRAPH_OPTION_FORMAT',
@@ -77,7 +80,7 @@ def parse_args():
     #table; options
     tablegroup = actions.add_parser(name='table', help="Tabulate the input fields",
                                     description="Pretty print the input data as tables. Columns can be chosen to print. By default, all columns are printed")
-    for i in ['fields', 'tocsv', 'delim', 'pipe', 'pipewith', 'heading', 'h1', 'notable', 'graph', 'fast', 'rich']:
+    for i in ['fields', 'tocsv', 'delim', 'pipe', 'pipewith', 'heading', 'skip_rows', 'h1', 'notable', 'graph', 'fast', 'rich']:
         tablegroup.add_argument(*args_d[i][0], **args_d[i][1])    
     tablegroup.add_argument('--transpose', action="store_true",
                             help="Transpose the table",
@@ -85,13 +88,13 @@ def parse_args():
 
     #summary: options
     aggregategroup = actions.add_parser(name='summary', help="Similar to pandas dataframe describe(), gives a statistical summary of the result, All values are treated as continous data")
-    for i in ['fields', 'delim', 'h1', 'heading', 'rich']:
+    for i in ['fields', 'delim', 'skip_rows', 'h1', 'heading', 'rich']:
         aggregategroup.add_argument(*args_d[i][0], **args_d[i][1])
 
     #hist: options
     histgroup = actions.add_parser(name='hist', help="Get the histogram of the input fields",
                                    description="If bins, size, count is provided. Bins is preferred over size and size over count. If none of them is provided, default is to use count=40")
-    for i in ['fields', 'delim', 'heading', 'h1', 'notable', 'rich', 'graph']:
+    for i in ['fields', 'delim', 'heading', 'skip_rows', 'h1', 'notable', 'rich', 'graph']:
         histgroup.add_argument(*args_d[i][0], **args_d[i][1])
     histgroup.add_argument('--min', type=int, help="the lowest of the bins. Default is the minimum of the data.", metavar='N')
     histgroup.add_argument('--max', type=int, help="the highest of the bins, highest value in set. Default is the maximum of the data.", metavar='N')
@@ -107,7 +110,7 @@ def parse_args():
     #pivot: options
     pivotgroup = actions.add_parser(name='pivot', help="Pivot the input data",
                                     description="Pivot the input data by creating row and column indices and computing the value for each using input fields.")
-    for i in ['delim', 'heading', 'h1', 'notable', 'rich', 'graph', 'tocsv', 'pipe', 'pipewith']:
+    for i in ['delim', 'heading', 'skip_rows', 'h1', 'notable', 'rich', 'graph', 'tocsv', 'pipe', 'pipewith']:
         pivotgroup.add_argument(*args_d[i][0], **args_d[i][1])
     pivotgroup.add_argument('-r', '--rowind', type=int, help="Position of the data that needs to be used as row index. Starts from 0",
                             metavar='N',
@@ -133,7 +136,7 @@ def parse_args():
     #group: options
     groupgroup = actions.add_parser(name='group', help="Group the input data by a column and run agg functions on the grouped data",
                                     description="Group the input data by creating row and column indices and computing the value for each using input fields.")
-    for i in ['delim', 'heading', 'h1', 'notable', 'rich', 'graph', 'tocsv', 'pipe', 'pipewith', 'noheading']:
+    for i in ['delim', 'heading', 'skip_rows', 'h1', 'notable', 'rich', 'graph', 'tocsv', 'pipe', 'pipewith', 'noheading']:
         groupgroup.add_argument(*args_d[i][0], **args_d[i][1])
     groupgroup.add_argument('-r', '--rowind', nargs="+", type=int, help="Position of the data that needs to be used as row index. Starts from 0",
                             metavar='N',
@@ -149,7 +152,7 @@ def parse_args():
     #topn: options
     topngroup = actions.add_parser(name='topn', help="Select topn results by aggfunction",
                                     description="Group the input data by creating row and column indices and computing the value for each using input fields.")
-    for i in ['delim', 'heading', 'h1', 'notable', 'rich', 'graph', 'tocsv', 'pipe', 'pipewith', 'noheading']:
+    for i in ['delim', 'heading', 'skip_rows', 'h1', 'notable', 'rich', 'graph', 'tocsv', 'pipe', 'pipewith', 'noheading']:
         topngroup.add_argument(*args_d[i][0], **args_d[i][1])
     topngroup.add_argument('-n', type=int, help="How many of topn to show",
                             metavar='N',
@@ -170,7 +173,7 @@ def parse_args():
                             'multiply', 'mul', 'gt', 'lt', 'ge', 'le', 'eq', 'mod',
                             'sample', 'concat']
     transformgroup = actions.add_parser(name='transform', help="Transform columns by running functions on them")
-    for i in ['delim', 'heading', 'h1', 'tocsv', 'pipe', 'pipewith', 'fields', 'noheading']:
+    for i in ['delim', 'heading', 'skip_rows', 'h1', 'tocsv', 'pipe', 'pipewith', 'fields', 'noheading']:
         transformgroup.add_argument(*args_d[i][0], **args_d[i][1])
     transformgroup.add_argument('--function', action="append", help="""function to run on the field. one field and one action is supported. 
     Format is fieldNumber:function:arguments. fieldNumber is based on the input field number, and numbering starts from 0. 
@@ -186,6 +189,7 @@ def parse_args():
 if __name__=='__main__':
     #Get all the arguments
     args = parse_args()
+    skip_rows = args.get('skip_rows')
     h1 = args.get('h1') 
     delim = args.get('delim') 
     #If --graph is not used, it will have the default False
@@ -326,17 +330,17 @@ if __name__=='__main__':
                   row_k=rowind, col_k=columnind,
                   val_k=valueind, f=aggfunc, summary=summary,
                   heading=heading, summaryf=summaryf, rowsummary=rowsummary,
-                  colsummary=colsummary)
+                  colsummary=colsummary, skip_rows=skip_rows)
     elif action == 'group':
         T = Group(src='-', delim=delim, fields=fields, h1=h1,
                   row_k=rowind, val_k=valueind, f=aggfunc, 
-                  heading=heading)
+                  heading=heading, skip_rows=skip_rows)
     elif action == 'topn':
         T = Topn(src='-', delim=delim, fields=fields, h1=h1,
                   row_k=rowind, val_k=valueind, f=aggfunc, 
-                  heading=heading, top_k=topind, n=n)
+                  heading=heading, top_k=topind, n=n, skip_rows=skip_rows)
     else:
-        T = Table(src='-', delim=delim, fields=fields, h1=h1, heading=heading)
+        T = Table(src='-', delim=delim, fields=fields, h1=h1, heading=heading, skip_rows=skip_rows)
 
     #Actions to do
     if action == 'group':
