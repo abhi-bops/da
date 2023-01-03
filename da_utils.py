@@ -356,7 +356,7 @@ def create_bins(bin_min, bin_max, bin_size=10, bin_count=0, round_value=1):
             bin_now += bin_size
     return bins
 
-def get_result(data, minv=None, maxv=None, count=20, bin_size=None, bins=[]):
+def get_hist(data, minv=None, maxv=None, count=20, bin_size=None, bins=[]):
     """
     Create histogram bins
     """

@@ -9,6 +9,7 @@ from itertools import chain, zip_longest
 from da_classes import *
 from da_utils import *
 from da_custom import *
+from da_graphs import *
 
 g_format='kind:x:y:hue:split_interval:is_ts:subplots'
 g_ex='bar:1:0:2:10:False:False --> Plot a bar chart(kind), with x-axis as column 1(x), y-axis from column 0(x), and group data by column2(hue). Split the graphs such that each graph has 10 values(split_interval) in x-axis, x-axis is not of time format(is_ts=False), Plot all data in 1 chart(subplots=False)'
@@ -587,15 +588,17 @@ if __name__=='__main__':
             name = Cv[0]
             C = Column(data=Cv[1], name=name)
             data = list(filter(lambda x: not isnan(x), C.data))
-            heading=['bins', 'count', 'share%']
+            heading=['bins', 'count', 'share%', 'cumshare%']
             #Categorical columns will return nan, so data is [], so we will use counter
             if not data:
                 #Initialise a list to collect the rows
                 hist_table = []
                 counter = Counter(Cv[1])
+                cumshare = 0
                 for k, v in counter.items():
                     share = round(int(v)/len(Cv[1])*100,2)
-                    row = [k, v, share]
+                    cumshare += share
+                    row = [k, v, share, cumshare]
                     if asciigraph:
                         width = 20
                         barlength = int((width*share)/100)
@@ -605,17 +608,19 @@ if __name__=='__main__':
             else:
                 hist_table = []
                 total_count = len(data)
-                bin_d = get_result(data, **kwargs)
+                bin_d = get_hist(data, **kwargs)
                 if not bin_d:
                     continue
                 #Start is taken as the minimum bin-1
                 i_old=sorted(bin_d)[0]-1
                 field_len = max([len(str(k)) for k in bin_d.keys()])*2 + 3
                 hist_table = []
+                cumshare = 0
                 for i in sorted(bin_d.keys()):
                     bin_s = "({}-{}]".format(i_old, i)
                     share = round(bin_d[i]*100/total_count)
-                    row = [bin_s, bin_d[i], share]
+                    cumshare += share
+                    row = [bin_s, bin_d[i], share, cumshare]
                     if asciigraph:
                         width = 20
                         barlength = int((width*share)/100)
@@ -628,7 +633,7 @@ if __name__=='__main__':
                 heading.append("histogram")
             if not notable:
                 if rich:
-                    print(rich_print_table(data=hist_table, heading=heading, title=title, justify={0: 'left', 3: 'left'}))
+                    print(rich_print_table(data=hist_table, heading=heading, title=title, justify={0: 'left', 4: 'left'}))
                 else:
                     print(title)
                     #Print the table

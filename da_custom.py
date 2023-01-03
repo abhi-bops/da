@@ -77,3 +77,62 @@ def f_formatunixtime(data, other="%H:%M:%S"):
         o = date.strftime(other)
         out.append(o)
     return out
+
+def f_shift(data, other=-1):
+    """
+    Shift data by "other" units, positive is to move the column downwards (lags), negative is to move the column forwards (leads)
+    """
+    out = []
+    data_shift = data.copy()
+    if other > 0:
+        for i in range(0, abs(other)):
+            data_shift.pop()
+            data_shift.insert(0, nan)
+    else:
+        for i in range(0, abs(other)):
+            data_shift.pop(0)
+            data_shift.append(nan)
+    return data_shift
+
+def f_lag(data, other=1):
+    #Make it positive
+    other=abs(other)
+    return f_shift(data, other)
+
+def f_lead(data, other=1):
+    #Make it negative
+    other=abs(other)
+    other = -1*other
+    return f_shift(data, other)
+
+def f_diff(data, other=-1):
+    """
+    Diff data by "other" units, positive is to move the column downwards and diff, negative is to move the column upwards and diff
+    """
+    data_shift = f_shift(data, other)
+    out = [l1-l2 for (l1, l2) in zip(data, data_shift)]
+    return out
+
+def f_rolling(data, other=5):
+    """
+    Compute SMA over periods
+    """
+    out = []
+    window = other
+    if window >= 0:
+        for n, i in enumerate(data, 0):
+            values = data[n:window+n]
+            sma = sum(values)/window
+            out.append(sma)
+    if window < 0:
+        for n, i in enumerate(data, 0):
+            if n+window < 0:
+                start=0
+            else:
+                start=n+window
+            values = data[start:n]
+            print(values)
+            sma = sum(values)/window
+            out.append(sma)
+    return out
+
