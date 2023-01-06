@@ -11,9 +11,6 @@ from da_utils import *
 from da_custom import *
 from da_graphs import *
 
-g_format='kind:x:y:hue:split_interval:is_ts:subplots'
-g_ex='bar:1:0:2:10:False:False --> Plot a bar chart(kind), with x-axis as column 1(x), y-axis from column 0(x), and group data by column2(hue). Split the graphs such that each graph has 10 values(split_interval) in x-axis, x-axis is not of time format(is_ts=False), Plot all data in 1 chart(subplots=False)'
-
 if sys.getfilesystemencoding() == 'utf-8':
     bar_char = '█'
 else:
@@ -50,17 +47,8 @@ def parse_args():
               'skip_rows': [['--skip-rows'], {'type': int,
                                               'help': 'Skip rows',
                                               'default': 0}],
-              'graph': [['--graph'], {'type': str,
-                                      'help': "Graph the data (experimental), information is of format - {}. ex: {}. If format is not passed, a default format is assumed".format(g_format, g_ex),
-                                      'metavar': 'GRAPH_OPTION_FORMAT',
-                                      'default': False,
-                                      'nargs': '?'
-                                      }],
               'noheading': [['--noheading'], {'action': 'store_true',
                                               'help': 'Disables printing of heading on output when used with pipe/pipewith options. Useful if the data needs to passed into sort,uniq commands',
-                                              'default': False}],
-              'notable': [['--notable'], {'action': 'store_true',
-                                              'help': 'Disables printing of data on output. Useful if the tograph is used and the data is not needed.',
                                               'default': False}],
               'fast': [['--fast'],
                        {'action':'store_true',
@@ -72,7 +60,6 @@ def parse_args():
     #This set is to reflect tablegroup's options so that it can run as default
     parser.add_argument('--pipe', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--tocsv', action='store_true', help=argparse.SUPPRESS, default=None)
-    parser.add_argument('--graph', type=str, help=argparse.SUPPRESS, default=False, nargs='?')
     #Do not include list inputs here https://stackoverflow.com/questions/35898944/python-subparser-parsing-with-nargs
     parser.add_argument('--heading', type=str, help=argparse.SUPPRESS, default=None)
     
@@ -81,7 +68,7 @@ def parse_args():
     #table; options
     tablegroup = actions.add_parser(name='table', help="Tabulate the input fields",
                                     description="Pretty print the input data as tables. Columns can be chosen to print. By default, all columns are printed")
-    for i in ['fields', 'tocsv', 'delim', 'pipe', 'pipewith', 'heading', 'skip_rows', 'h1', 'notable', 'graph', 'fast', 'rich']:
+    for i in ['fields', 'tocsv', 'delim', 'pipe', 'pipewith', 'heading', 'skip_rows', 'h1', 'notable', 'fast', 'rich']:
         tablegroup.add_argument(*args_d[i][0], **args_d[i][1])    
     tablegroup.add_argument('--transpose', action="store_true",
                             help="Transpose the table",
@@ -95,7 +82,7 @@ def parse_args():
     #hist: options
     histgroup = actions.add_parser(name='hist', help="Get the histogram of the input fields",
                                    description="If bins, size, count is provided. Bins is preferred over size and size over count. If none of them is provided, default is to use count=40")
-    for i in ['fields', 'delim', 'heading', 'skip_rows', 'h1', 'notable', 'rich', 'graph']:
+    for i in ['fields', 'delim', 'heading', 'skip_rows', 'h1', 'notable', 'rich']:
         histgroup.add_argument(*args_d[i][0], **args_d[i][1])
     histgroup.add_argument('--min', type=int, help="the lowest of the bins. Default is the minimum of the data.", metavar='N')
     histgroup.add_argument('--max', type=int, help="the highest of the bins, highest value in set. Default is the maximum of the data.", metavar='N')
@@ -111,7 +98,7 @@ def parse_args():
     #pivot: options
     pivotgroup = actions.add_parser(name='pivot', help="Pivot the input data",
                                     description="Pivot the input data by creating row and column indices and computing the value for each using input fields.")
-    for i in ['delim', 'heading', 'skip_rows', 'h1', 'notable', 'rich', 'graph', 'tocsv', 'pipe', 'pipewith']:
+    for i in ['delim', 'heading', 'skip_rows', 'h1', 'notable', 'rich', 'tocsv', 'pipe', 'pipewith']:
         pivotgroup.add_argument(*args_d[i][0], **args_d[i][1])
     pivotgroup.add_argument('-r', '--rowind', type=int, help="Position of the data that needs to be used as row index. Starts from 0",
                             metavar='N',
@@ -137,7 +124,7 @@ def parse_args():
     #group: options
     groupgroup = actions.add_parser(name='group', help="Group the input data by a column and run agg functions on the grouped data",
                                     description="Group the input data by creating row and column indices and computing the value for each using input fields.")
-    for i in ['delim', 'heading', 'skip_rows', 'h1', 'notable', 'rich', 'graph', 'tocsv', 'pipe', 'pipewith', 'noheading']:
+    for i in ['delim', 'heading', 'skip_rows', 'h1', 'notable', 'rich', 'tocsv', 'pipe', 'pipewith', 'noheading']:
         groupgroup.add_argument(*args_d[i][0], **args_d[i][1])
     groupgroup.add_argument('-r', '--rowind', nargs="+", type=int, help="Position of the data that needs to be used as row index. Starts from 0",
                             metavar='N',
@@ -153,7 +140,7 @@ def parse_args():
     #topn: options
     topngroup = actions.add_parser(name='topn', help="Select topn results by aggfunction",
                                     description="Group the input data by creating row and column indices and computing the value for each using input fields.")
-    for i in ['delim', 'heading', 'skip_rows', 'h1', 'notable', 'rich', 'graph', 'tocsv', 'pipe', 'pipewith', 'noheading']:
+    for i in ['delim', 'heading', 'skip_rows', 'h1', 'notable', 'rich', 'tocsv', 'pipe', 'pipewith', 'noheading']:
         topngroup.add_argument(*args_d[i][0], **args_d[i][1])
     topngroup.add_argument('-n', type=int, help="How many of topn to show",
                             metavar='N',
@@ -193,13 +180,6 @@ if __name__=='__main__':
     skip_rows = args.get('skip_rows')
     h1 = args.get('h1') 
     delim = args.get('delim') 
-    #If --graph is not used, it will have the default False
-    #If only the --graph is used, it will have None
-    #If --graph 'g_options' , it will be a string
-    tograph = args.get('graph')
-    if tograph != False:
-        #Return g_options if passed otherwise true (if g_options is None)
-        tograph = tograph or True
     tocsv = args.get('tocsv') 
     #Check if delims for output are passed
     pipewith = args.get('pipewith') #There will be a delimter here
@@ -293,27 +273,6 @@ if __name__=='__main__':
         fields = []
     fields = get_uniq_fields(fields)
 
-    #Handle graphing related steps
-    # If tograph is False, then the option was not selected
-    # If action is hist, no need to do anything, hist has it's own g_options setup
-    g_options = {}
-    if tograph != False and action!='hist':
-        if isinstance(tograph, (str)):
-            g_options = dict(zip_longest(g_format.split(':'), tograph.split(':')))
-            if g_options['y']:
-                g_options['y'] = get_fields(g_options['y'])
-            else:
-                g_options['y'] = [1]
-            if g_options['x']:
-                g_options['x'] = int(g_options['x'])
-            else:
-                g_options['x'] = 0
-            for i in ['is_ts', 'subplots']:
-                if g_options[i] == 'True':
-                    g_options[i] = True
-                else:
-                    g_options[i] = False
-
     #Creating the table object
     #handle pivot separately, rest is default Table object
     if action == 'pivot':
@@ -389,22 +348,6 @@ if __name__=='__main__':
                 T.pipe(disable_heading=noheading, delim=pipe)
             else:
                 print(T.to_ascii_table())
-        #Get pivotdata for graphing, no summaries
-        output = T.get_pivotdata()
-        #If graphing is requested
-        if tograph:
-            is_ts = False
-            if g_options:
-                is_ts = g_options['is_ts'] 
-            y = range(1, len(output['data'][0]))
-            title = "Heatmap of pivot result"
-            g_options = {'kind': 'heatmap', 'x': 0, 'y': y,
-                         'split_interval': 50,
-                         'is_ts': is_ts, 'subplots': False, 'title': title}
-            g=Graph(data=output['data'], heading=output['heading'], **g_options)
-            graphs = g.plot()
-            for fig in graphs:
-                imgcat(fig)
 
     #Simple ASCII Table
     if not action or action == 'table':
@@ -431,39 +374,6 @@ if __name__=='__main__':
                         print(T.to_ascii_table(), flush=True)
                 else:
                     print(T.to_ascii_table(), flush=True)        
-        if tograph:
-            title = "Graph"
-            #If the x-axis for the graph is passed
-            if g_options.get('x') != None:
-                #Get the fields requested (this will follow the order of the input data)
-                x = g_options['x']
-                #Get the mapping of the output of table object, this is needed for graphs
-                g_options['x'] = T.field_map[x]
-            #If it is not provided, then we will use the default order
-            else:
-                x = 0
-                g_options['x'] = 0
-            #Same action with y
-            if g_options.get('y') != None:
-                y = g_options['y']
-                g_options['y'] = [T.field_map[f] for f in y]
-            else:
-                y = [1]
-                g_options['y'] = 1
-            fields = [x, *y]
-            data = T.get_fields(fields)
-            df_data = {v[0]:v[1] for _, v in data.items()}
-            if not g_options:
-                g_options = {'kind': 'line', 'x': 0, 'y': [1],
-                             'split_interval': -1, 'is_ts': False,
-                             'subplots': False, 'title': title}
-            #If scatter plot disable splitting
-            if g_options['kind'] == 'scatter':
-                g_options['split_interval'] = -1
-            g=Graph(data=df_data, **g_options)
-            graphs = g.plot()
-            for fig in graphs:
-                imgcat(fig)
 
     #Summarising
     if action == 'summary':
@@ -639,14 +549,6 @@ if __name__=='__main__':
                     #Print the table
                     hT = Table(data=hist_table, heading=heading)
                     print(hT.to_ascii_table())
-            #If graphing is requested
-            if tograph:
-                output = {'heading': heading, 'data': hist_table}
-                g_options = {'kind': 'bar', 'x': '0', 'y': '1', 'subplots': True, 'split_interval': -1, 'vert': False, 'title': title}
-                g=Graph(data=hist_table, heading=heading, **g_options)
-                graphs = g.plot()
-                for fig in graphs:
-                    imgcat(fig)
 
 
                     
