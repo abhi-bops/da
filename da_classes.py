@@ -40,15 +40,7 @@ class Table(object):
             self.build_table_from_source()
         #Data is a list of lists; each row is a list; and in each row-list, the column items are in list
         else:
-            self.data = data
-            #Compute how many columns is needed
-            if not self.max_fields:
-                self.max_fields = max([len(i) for i in data])
-            #Also fill the self.fields list
-            self.fields = self.fields or list(range(self.max_fields))
-            #If heading is give use it
-            if h1:
-                self.heading = self.data.pop(0)
+            self.build_table_from_data(data)
         #Fill the headings, if there are some missing
         self.fill_heading()
         self.data, self.data_for_get_fields = tee(self.data, 2)
@@ -57,7 +49,36 @@ class Table(object):
 
     def add_row(self, row):
         self.data.append(row)
-            
+
+    def build_table_from_data(self, data):
+        self.data = []
+        for info in data[self.skip_rows:]:
+            #If fields param is passed, Select only those fields
+            if self.fields:
+                #Using dict and enumerate to access fields by numbers
+                filter_info = dict(enumerate(info))
+                #If field exists give the result, else return None
+                # This should also preserve the order of fields
+                info = [filter_info.get(f) for f in self.fields]
+                #If an empty string
+            if not info or info == ['']:
+                continue
+            #Impute missing data with missing_char
+            info = [i.strip() if i else self.missing_char for i in info]
+            self.data.append(info)       
+        #If the first line is heading, pop it out
+        if self.h1:
+            self.heading = self.data.pop(0)
+        #Otherwise check if heading is populated by user input
+        elif self.heading == []:
+            #If not use the fields numbers as hint for heading
+            self.heading = ['col'+str(i) for i in self.fields]
+        #Compute max fields, needed for imputation of data
+        if not self.max_fields:
+            self.max_fields = max([len(i) for i in self.data])
+        #Also fill the self.fields list
+        self.fields = self.fields or list(range(self.max_fields))
+                
     def build_table_from_source(self):
         #Read the source
         self.src_data = self.get_input()
@@ -670,7 +691,9 @@ class Group(Table):
             for v in self.vp:
                 cells = []
                 for f in self.aggfunc:
-                    cell = f_aggfunc(group_d[v][row], f, need_sort=True) or self.missing_char
+                    cell = f_aggfunc(group_d[v][row], f, need_sort=True) 
+                    if cell == None:
+                        cell = self.missing_char
                     cells.append(cell)
                 row_data += cells
             group_data.append(list(row) + row_data)
@@ -839,6 +862,3 @@ class Pivot(Table):
             summary_rows = len(self.summaryfunc)
         return super().to_ascii_table(heading_border=True,
                                       summary=summary_rows)
-
-
-        

@@ -189,7 +189,7 @@ def f_aggfunc(data, aggfunc, need_sort=False):
     #For numerical functions convert data into float
     data = list(filter(lambda x:x is not nan, map(convert_float, data)))
     #Remove the None
-    data = list(filter(None, data))
+    data = list(filter(lambda x:x != None, data))
     #Sort the data if it was needed
     if need_sort:
         data = sorted(data)
