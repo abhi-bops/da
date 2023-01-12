@@ -1,6 +1,9 @@
+import fileinput
 from da_utils import *
 from math import nan
 from datetime import datetime
+from itertools import starmap
+import csv
 
 def f_dummyfunctionfortransform(data, param):
     """
@@ -17,12 +20,15 @@ def f_dummyfunctionfortransform(data, param):
     return out
 
 ##Custom functions for transform
+
 def f_share(data, other=None):
     """
+    fcolA:f_normalise:fcolB; compute for each colA: colA/total(colA)
+
     Compute share of each value of the column over the sum of values in the column
     """
     #Ignore invalid data (i.e data that cannot converted into float)
-    valid_data = filter(None, map(convert_float, data))
+    valid_data = filter(lambda x:x != None, map(convert_float, data))
     total = sum([i for i in valid_data if not isnan(i)])
     out = []
     for i in data:
@@ -37,8 +43,31 @@ def f_share(data, other=None):
             out.append('-')
     return out
 
-def f_cumsum(data, other=None):
+def f_normalise(data, other=None):
     """
+    fcolA:f_normalise:fcolB; compute colA/(colB+colA)
+    """
+    #Ignore invalid data (i.e data that cannot converted into float)
+    valid_data = list(filter(lambda x:x != None, map(convert_float, data)))
+    valid_other_data = filter(lambda x:x != None, map(convert_float, other.data))
+    total =  list(starmap(lambda a,b:a+b, zip(valid_data, valid_other_data)))
+    return list(starmap(lambda a,b: round(a*1.0/b, 4), zip(valid_data, total)))
+
+def f_round(data, other=2):
+    """
+    fcolA:f_round:number; compute round(fcolA, number)
+    """
+    valid_data = list(filter(lambda x:x != None, map(convert_float, data)))
+    try:
+        other = int(other)
+    except ValueError:
+        return data
+    return list(map(lambda x:round(x, other), data))
+
+def f_cumsum(data, other=None):
+    """ 
+    fcolA:f_cumsum; for each row in colA: sum of previous colA values + current row
+
     Compute cumulative sum at each row-value of the column
     """
     sum_tmp = 0
@@ -59,6 +88,8 @@ def f_cumsum(data, other=None):
 
 def f_formatunixtime(data, other="%H:%M:%S"):
     """
+    fcolA:f_formatunixtime:string
+
     Format unix timestamp into format specified in other. It is passed directly into strftime method. 
     """
     #Handling the default param option of empty string ''
@@ -80,6 +111,8 @@ def f_formatunixtime(data, other="%H:%M:%S"):
 
 def f_shift(data, other=-1):
     """
+    f1:f_shift:number 
+
     Shift data by "other" units, positive is to move the column downwards (lags), negative is to move the column forwards (leads)
     """
     out = []
@@ -113,12 +146,16 @@ def f_diff(data, other=-1):
     out = [l1-l2 for (l1, l2) in zip(data, data_shift)]
     return out
 
-def f_rolling(data, other=5):
+def f_sma(data, other=5):
     """
     Compute SMA over periods
     """
     out = []
     window = other
+    if isinstance(window, str):
+        window = 5
+    #Make data as float
+    data = list(filter(lambda x:x != None, map(convert_float, data)))
     if window >= 0:
         for n, i in enumerate(data, 0):
             values = data[n:window+n]
@@ -135,4 +172,53 @@ def f_rolling(data, other=5):
             sma = sum(values)/window
             out.append(sma)
     return out
+
+def f_csvmap(data, other=None):
+    """
+    f1:f_csvmap:csv_file
+
+    csv_file format has to be key,value
+    key being the data from f1
+    value will be in the result
+    since it uses a dictionary to get key,value pair, only the last match will take effect
+    if there is no match, an empty string will be used
+    """
+    info = dict(enumerate(other.split(',')))
+    #Get csv file name
+    csv_file = info[0]
+    #Get key for mapping or use 0
+    key = int(info.get(1, 0))
+    #Get value for mapping or use 1
+    value = int(info.get(2, 1))
+    csv_data = {}
+    with open(csv_file, 'r') as file:
+        csvreader = csv.reader(file)
+        for row in csvreader:
+            csv_data[row[key]] = row[value]
+    return [csv_data.get(i, '') for i in data]
+
+def f_filemap(data, other=None):
+    """
+    f1:f_filemap:file
+
+    file format has to be key value 
+    key being the data from f1
+    value will be in the result
+    since it uses a dictionary to get key,value pair, only the last match will take effect
+    if there is no match, an empty string will be used
+    """
+    file_data = {}
+    info = dict(enumerate(other.split(',')))
+    #Get csv file name
+    filemap = info[0]
+    #Get key for mapping or use 0
+    key = int(info.get(1, 0))
+    #Get value for mapping or use 1
+    value = int(info.get(2, 1))
+    with open(filemap, 'r') as file:
+        reader = file.readlines()
+        for row in reader:
+            row = row.strip('\n').split(' ')
+            file_data[row[key]] = row[value]
+    return [file_data.get(i, '') for i in data]
 

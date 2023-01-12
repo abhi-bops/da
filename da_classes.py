@@ -1,6 +1,7 @@
 import fileinput
 from math import nan, ceil, inf
 from itertools import tee, starmap, repeat, groupby
+from re import L
 import statistics as stats
 from collections import defaultdict, Counter
 #Importing from da_* should be from da_* import *
@@ -12,9 +13,16 @@ global missing_char
 missing_char = '-'
 
 class Table(object):
+    #Define the basic arguments needed for table
+    # Use kwargs for the rest
     def __init__(self, src=None, delim=' ', heading=None, data=None,
                  max_fields=0, h1=False, fields=None,
-                 missing_char='-', skip_rows=0):
+                 missing_char='-', skip_rows=0,
+                 **kwargs):
+        self.action = 'table'
+        #expand kwargs
+        args = dict(kwargs)
+        self.args = args
         #Input field delimiter
         self.delim = delim
         #To Skip rows
@@ -64,8 +72,8 @@ class Table(object):
             if not info or info == ['']:
                 continue
             #Impute missing data with missing_char
-            info = [i.strip() if i else self.missing_char for i in info]
-            self.data.append(info)       
+            info = [i if i else self.missing_char for i in info]
+            self.data.append(info)
         #If the first line is heading, pop it out
         if self.h1:
             self.heading = self.data.pop(0)
@@ -78,7 +86,7 @@ class Table(object):
             self.max_fields = max([len(i) for i in self.data])
         #Also fill the self.fields list
         self.fields = self.fields or list(range(self.max_fields))
-                
+            
     def build_table_from_source(self):
         #Read the source
         self.src_data = self.get_input()
@@ -101,7 +109,7 @@ class Table(object):
     
     def __repr__(self):
         return 'Table: delim="{}", heading={}, fields={}'.format(self.delim, self.heading, self.fields)
-    
+       
     def get_input(self):
         """Read data from src, with delim to split fields"""
         #For each line got from input
@@ -197,6 +205,16 @@ class Table(object):
 
     def to_ascii_table(self, heading_border=True, summary=0, repeat_heading=40):
         """Convert heading and data into a fancy table"""
+        if self.action == "pivot":
+            #Intialise summary_rows as 0
+            summary_rows = 0
+            #If we have column key, that means, we are using the proper pivot
+            # get the summary rows as the length of the summary function list
+            # AND colsummary is TRUE
+            if self.col_k and self.colsummary:
+                summary_rows = len(self.summaryfunc)
+            heading_border=True
+            summary = summary_rows            
         row_counter = 0
         rows = list(self.data)
         if not rows:
@@ -254,23 +272,307 @@ class Table(object):
         self.pipe(delim=',')
 
     def sort(self):
+        self.data = sorted(self.data, key=1)
         pass
 
+    def filterfunc(self, pattern):
+        """
+        f1 > 2 AND f3 > 5
+        """
+        function_l = []
+        for i in pattern.partition('AND'):
+            i = i.strip()
+            if i == 'AND' or i == '':
+                continue
+            action = [a.strip() for a in i.split()]
+            op1 = int(action[0][1:])
+            opr = action[1]
+            op2 = float(action[2])
+            if opr in ('>', '<', '==', '!=', '<=', '>='):
+                function_l.append('float(data[{}]) {} {}'.format(op1, opr, op2))
+        self.filterfunc = function_l
+            
+    def filtermap(self, data):
+        conditions_true = 0
+        #Cycle through each action
+        for i in self.filterfunc:
+            #Check if it evaluates to False
+            if not eval(i):
+                #If it is False, return None (chained AND is implemented)
+                conditions_true = False
+                return None
+            else:
+                #Action return True, mark it as true, move to next action
+                conditions_true = True
+        #If conditions_true remained True, return the row
+        if conditions_true and conditions_true !=0:
+            return data
+
     def filterrows(self):
-        pass
+        filter_results = list(filter(None, map(self.filtermap, self.data)))
+        self.data = filter_results
 
     def transpose(self):
         """
         Convert rows to columns
         """
+        self.action = 'transpose'
         data = transpose_rows(list(self.data))
         T = Table(data=data[1:], heading=data[0], max_fields=0)
         return T
+
+    def GROUP(self):
+        self.action = 'group'
+        row_k = self.args['row_k']
+        val_k = self.args['val_k']
+        if row_k == None:
+            self.row_k = [1]
+        else:
+            self.row_k = row_k
+        #If val_k is passed we will need to use that column
+        if val_k != None:
+            self.val_k = val_k
+        #Otherwise we need to use some statistical summary
+        else:
+            pass
+        self.aggfunc = self.args['f']
+
+    def TOPN(self):
+        self.action = 'topn'
+        #Run GROUPING actions first
+        self.GROUP()
+        self.top_k = self.args['top_k']
+        self.n = self.args['n']
+        self.row_k.append(*self.top_k)
+
+    def PIVOT(self):
+        self.action = 'pivot'
+        self.row_k = self.args['row_k']
+        self.col_k = self.args['col_k']
+        self.rowsummary = self.args.get('rowsummary') or False
+        self.colsummary = self.args.get('colsummary') or False
+        #If val_k is passed we will need to use that column
+        if self.args['val_k'] != None:
+            self.val_k = self.args['val_k']
+        #Otherwise we need to use some statistical summary
+        else:
+            pass
+        self.aggfunc = self.args['f']
+        self.summary = self.args['summary']
+        self.summaryfunc = []
+        if self.summary:
+            self.summaryfunc = [self.aggfunc]
+        if self.args['summaryf']:
+            self.summaryfunc += self.args['summaryf']
+        self.summaryfunc = list(set(self.summaryfunc))
+        self.summarydata = {'row':{'heading':[], 'data':[]},
+                            'col':{'heading':[], 'data':[]}}
+
+    def pivot(self):
+        """Pivot on row index and column index with an aggregation function applied on value index"""
+        #To set up the necessary variables
+        self.PIVOT()
+        #row pointer as the result will be got from the table in the order r, c, v
+        # The order comes from da_tool when handling fields needed for table creation    
+        rp = 0 
+        cp = 1
+        vp = 2
+        row_v = set()
+        col_v = set()
+        #Pivot_d
+        # 'Row1' : { 'Col1': [value_list], 'Col2': [value_list] },
+        # 'Row2' : { 'Col1': [value_list], 'Col2': ... }
+        pivot_d = defaultdict(dict)
+        for d in self.data:
+            #Get the row index, if it's None, use nan
+            row_v.add(d[rp] or nan)
+            #Get the column index, if it's None, use nan
+            col_v.add(d[cp] or nan)
+            #Get the values in a list for each rowindex, colindex, if it's None use 0
+            if not pivot_d[d[rp]].get(d[cp]):
+                pivot_d[d[rp]][d[cp]] = []
+            pivot_d[d[rp]][d[cp]].append(d[vp] or 0)
+        #Making col_v into a list and sort it
+        col_v = sorted(list(col_v))
+        row_v = sorted(list(row_v))
+        #heading item for output made from pivot_heading and columns
+        pivot_data = []
+        for row in row_v:
+            col_r = []
+            for col in col_v:
+                data = sorted(pivot_d[row].get(col, []))
+                cell = f_aggfunc(data, self.aggfunc) or self.missing_char
+                col_r.append(cell)
+            pivot_data.append([row, *col_r])
+        self.data = pivot_data
+        self.pivotdata = pivot_data
+        #If summary is needed, running on the resulting pivot table
+        #Rest heading, Construct pivot heading using the parent Table's heading
+        self.row_v = row_v
+        self.col_v = col_v
+        #Set the heading of the first column of the pivot table
+        # self.heading has the names colX, colY, colZ  ...
+        # where X, Y, Z are the field numbers from the input file
+        # and the order is by rp, cp, vp
+        self.heading = ['{}({}/{})'.format(self.aggfunc, self.heading[rp], self.heading[cp])]
+        self.heading += self.col_v
+        self.pivotheading = self.heading
+        #Reset max_fields
+        self.max_fields = len(self.heading)        
+        summary_data = pivot_data.copy()
+        summary_heading = self.heading.copy()
+        for func in self.summaryfunc:
+            self.add_summary(summary_data, summary_heading, func,
+                             rowsummary=self.rowsummary, colsummary=self.colsummary)
+            self.data[-1] += ['*']*len(self.summaryfunc)
+
+    def add_summary(self, summary_data, summary_heading, func,
+                    rowsummary=True,
+                    colsummary=True):
+        """Add a summary column for the resulting pivot table.
+        2 options, summarise the pivoted table's rows and/or summarise the pivoted
+        table's columns"""
+        if rowsummary:
+            self.summarydata['row']['heading'].append(':RSummary({}):'.format(func))
+            self.heading.append(':RSummary({}):'.format(func))        
+            #Summary for each row_index, using the pivot result
+            # row[1:]->First row is index
+            for n, row in enumerate(summary_data):
+                #To list as the f_aggfunc for first/last cannot handle filter
+                # If result is None, use missing char
+                data = list(filter(lambda x:x!=self.missing_char,
+                                     row[1:]))
+                result = f_aggfunc(data, func, need_sort=True)
+                if result == None:
+                    result = self.missing_char
+                sum_row = result
+                self.data[n].append(sum_row)
+                self.summarydata['row']['data'].append(sum_row)
+
+        if colsummary:
+            self.summarydata['col']['heading'].append(':CSummary({}):'.format(func))
+            sum_col=[':CSummary({}):'.format(func)]
+            #Summary for each col_index, using the pivot result
+            # Appended to the table
+            # The last value will be a summary of the summaries of the row index
+            for n, col in enumerate(summary_heading[1:], start=1):
+            #To list as the f_aggfunc for first/last cannot handle filter
+            # If result is none, use missing_char
+                data=list(filter(lambda x:x!=self.missing_char,
+                                 [i[n] for i in summary_data]))
+                result = f_aggfunc(data, func, need_sort=True)
+                #If result is None, replace it with missing_char
+                if result == None:
+                    result = self.missing_char
+                sum_col.append(result)
+            self.data.append(sum_col)
+            self.summarydata['col']['data'].append(sum_col)
+
+    def get_topn(self):
+        #To set up the necessary variables
+        self.TOPN()
+        group_d, group_k = self.create_groups()
+        group_data = self.process_groups(group_d, group_k)
+        topn_d = {}
+        for row, data in groupby(group_data, key=lambda x:x[0]):
+            topn = sorted(data, key=lambda x:x[-1], reverse=True)[:self.n]
+            topn_d[row] = list(map(lambda x:'{}({})'.format(x[1], x[2]), topn))
+            topn_items = len(topn_d[row]) 
+            if topn_items < self.n:
+                for i in range(topn_items, self.n):
+                    topn_d[row].append('-')
+        data = self.flatten_d(topn_d)
+        self.data = data
+        self.heading = [self.heading[self.row_k[0]]]
+        self.heading += ['top{}'.format(i) for i in range(1, self.n+1)]
+
+    def flatten_d(self, d):
+        flat_l = []
+        for k in d:
+            flat_l.append([k, *d[k]])
+        return flat_l 
+
+    def create_groups(self):
+        """Group is for grouping and summarising data for row ind key using data from valueind"""
+        #row pointer as the result will be got from the table in the order r, c, v
+        # The order comes from da_tool when handling fields needed for table creation    
+        self.rp = len(self.row_k)
+        self.vp = list(range(self.rp, len(self.fields)))
+        #group_d will create a dictionary, with key as the row-index
+        # and values is the list of values for that row-index
+        group_d = defaultdict(dict)
+        for v in self.vp:
+            group_d[v] = defaultdict(list)
+        #group_k will hold the keys of the row-index
+        group_k = set()
+        for d in self.data:
+            #Get the row index, if it's None, use nan
+            group_k.add(tuple(d[:self.rp]) or nan)
+            #Get the values in a list for each rowindex, if it's None use nan
+            for v in self.vp:
+                r_key = tuple(d[:self.rp])
+                group_d[v][r_key].append(d[v] or nan)
+        return group_d, group_k
+
+    def process_groups(self, group_d, group_k):
+        """
+        group_d: has the data for each group
+        group_k: Keys or the grouped items from which group_d can be accessed
+        """
+        #Process the groups and print the grouped results
+        #Making group_k into a list and sort it
+        group_k = sorted(list(group_k))
+        group_data = []
+        for row in group_k:
+            row_data = []
+            for v in self.vp:
+                cells = []
+                for f in self.aggfunc:
+                    cell = f_aggfunc(group_d[v][row], f, need_sort=True) 
+                    if cell == None:
+                        cell = self.missing_char
+                    cells.append(cell)
+                row_data += cells
+            group_data.append(list(row) + row_data)
+        return group_data
+
+    def create_group_heading(self):
+        #Set the heading of the first column of the new table
+        # self.heading has the names colX, colY ...
+        # where X, Y are the field numbers from the input file
+        # and the order is by rp, cp, vp
+        groupheading = []
+        for i in range(self.rp):
+            groupheading += ['group({})'.format(self.heading[i])]
+        for v in self.vp:
+            aggfuncheading = [i+'({})'.format(self.heading[v]) for i in self.aggfunc]
+            groupheading += aggfuncheading 
+        return groupheading
+
+    def group(self):
+        #To set up the necessary variables
+        self.GROUP()
+        group_d, group_k = self.create_groups()
+        self.data = self.process_groups(group_d, group_k)
+        self.heading = self.create_group_heading() 
+
+    def to_ascii_table_pivot(self):
+        #Intialise summary_rows as 0
+        summary_rows = 0
+        #If we have column key, that means, we are using the proper pivot
+        # get the summary rows as the length of the summary function list
+        # AND colsummary is TRUE
+        if self.col_k and self.colsummary:
+            summary_rows = len(self.summaryfunc)
+        return self.to_ascii_table(heading_border=True,
+                                   summary=summary_rows) 
+
 
 class ColumnTable(Table):
     """
     A object with multiple columns as its members
     """
+    action = 'transform'
     def __init__(self, data=[], name='Table', heading=None):
         self.name = name
         self.cdata = data
@@ -307,7 +609,7 @@ class ColumnTable(Table):
 
     def __repr__(self):
         return 'ColumnTable: heading={}, name={}'.format(self.heading, self.name)
-        
+
 class Column(object):
     def __init__(self, data=None, name='Col', dtype=float, categorical=False):
         """
@@ -521,344 +823,3 @@ class Column(object):
             result.append(['most', '{} ({})'.format(Ctr.most_common()[0][0], Ctr.most_common()[0][1])])
             result.append(['least', '{} ({})'.format(Ctr.most_common()[-1][0], Ctr.most_common()[-1][1])])
         return dtype, result
-
-class Topn(Table):
-    def __init__(self, row_k=None, top_k=None, val_k=None, f=None,
-                 src=None, delim=' ', heading=None, data=None,
-                 max_fields=0, h1=False, fields=None,
-                 missing_char='-', n=5, skip_rows=0):
-        """
-        Creating a copy from pivot table, need to remove stuff that is not needed
-        """
-        if row_k == None:
-            self.row_k = [1]
-        else:
-            self.row_k = row_k
-        #If val_k is passed we will need to use that column
-        if val_k != None:
-            self.val_k = val_k
-        #Otherwise we need to use some statistical summary
-        else:
-            pass
-        self.top_k = top_k
-        self.n = n
-        self.aggfunc = f
-        self.row_k.append(*self.top_k)
-        #Get the function initialised with the super init
-        super().__init__(src, delim, heading, data,
-                         max_fields, h1, fields,
-                         missing_char, skip_rows)
-
-    def get_topn(self):
-        group_d, group_k = self.create_groups()
-        group_data = self.process_groups(group_d, group_k)
-        topn_d = {}
-        for row, data in groupby(group_data, key=lambda x:x[0]):
-            topn = sorted(data, key=lambda x:x[-1], reverse=True)[:self.n]
-            topn_d[row] = list(map(lambda x:'{}({})'.format(x[1], x[2]), topn))
-            topn_items = len(topn_d[row]) 
-            if topn_items < self.n:
-                for i in range(topn_items, self.n):
-                    topn_d[row].append('-')
-        data = self.flatten_d(topn_d)
-        self.data = data
-        self.heading = [self.heading[self.row_k[0]]]
-        self.heading += ['top{}'.format(i) for i in range(1, self.n+1)]
-
-    def flatten_d(self, d):
-        flat_l = []
-        for k in d:
-            flat_l.append([k, *d[k]])
-        return flat_l
-        
-    def create_groups(self):
-        """Group is for grouping and summarising data for row ind key using data from valueind"""
-        #row pointer as the result will be got from the table in the order r, c, v
-        # The order comes from da_tool when handling fields needed for table creation    
-        self.rp = len(self.row_k)
-        self.vp = list(range(self.rp, len(self.fields)))
-        #group_d will create a dictionary, with key as the row-index
-        # and values is the list of values for that row-index
-        group_d = defaultdict(dict)
-        for v in self.vp:
-            group_d[v] = defaultdict(list)
-        #group_k will hold the keys of the row-index
-        group_k = set()
-        for d in self.data:
-            #Get the row index, if it's None, use nan
-            group_k.add(tuple(d[:self.rp]) or nan)
-            #Get the values in a list for each rowindex, if it's None use nan
-            for v in self.vp:
-                r_key = tuple(d[:self.rp])
-                group_d[v][r_key].append(d[v] or nan)
-        return group_d, group_k
-
-    def process_groups(self, group_d, group_k):
-        """
-        group_d: has the data for each group
-        group_k: Keys or the grouped items from which group_d can be accessed
-        """
-        #Process the groups and print the grouped results
-        #Making group_k into a list and sort it
-        group_k = sorted(list(group_k))
-        group_data = []
-        for row in group_k:
-            row_data = []
-            for v in self.vp:
-                cells = []
-                for f in self.aggfunc:
-                    cell = f_aggfunc(group_d[v][row], f, need_sort=True) or self.missing_char
-                    cells.append(cell)
-                row_data += cells
-            group_data.append(list(row) + row_data)
-        return group_data
-
-    def create_group_heading(self):
-        #Set the heading of the first column of the new table
-        # self.heading has the names colX, colY ...
-        # where X, Y are the field numbers from the input file
-        # and the order is by rp, cp, vp
-        groupheading = []
-        for i in range(self.rp):
-            groupheading += ['group({})'.format(self.heading[i])]
-        for v in self.vp:
-            aggfuncheading = [i+'({})'.format(self.heading[v]) for i in self.aggfunc]
-            groupheading += aggfuncheading 
-        return groupheading
-
-    def group(self):
-        group_d, group_k = self.create_groups()
-        self.data = self.process_groups(group_d, group_k)
-        self.heading = self.create_group_heading()
-    
-class Group(Table):
-    def __init__(self, row_k=None, val_k=None, f=None,
-                 src=None, delim=' ', heading=None, data=None,
-                 max_fields=0, h1=False, fields=None,
-                 missing_char='-', skip_rows=0):
-        """
-        Creating a copy from pivot table, need to remove stuff that is not needed
-        """
-        if row_k == None:
-            self.row_k = [1]
-        else:
-            self.row_k = row_k
-        #If val_k is passed we will need to use that column
-        if val_k != None:
-            self.val_k = val_k
-        #Otherwise we need to use some statistical summary
-        else:
-            pass
-        self.aggfunc = f
-        #Get the function initialised with the super init
-        super().__init__(src, delim, heading, data,
-                         max_fields, h1, fields,
-                         missing_char, skip_rows)
-
-    def create_groups(self):
-        """Group is for grouping and summarising data for row ind key using data from valueind"""
-        #row pointer as the result will be got from the table in the order r, c, v
-        # The order comes from da_tool when handling fields needed for table creation    
-        self.rp = len(self.row_k)
-        self.vp = list(range(self.rp, len(self.fields)))
-        #group_d will create a dictionary, with key as the row-index
-        # and values is the list of values for that row-index
-        group_d = defaultdict(dict)
-        for v in self.vp:
-            group_d[v] = defaultdict(list)
-        #group_k will hold the keys of the row-index
-        group_k = set()
-        for d in self.data:
-            #Get the row index, if it's None, use nan
-            group_k.add(tuple(d[:self.rp]) or nan)
-            #Get the values in a list for each rowindex, if it's None use nan
-            for v in self.vp:
-                r_key = tuple(d[:self.rp])
-                group_d[v][r_key].append(d[v] or nan)
-        return group_d, group_k
-
-    def process_groups(self, group_d, group_k):
-        """
-        group_d: has the data for each group
-        group_k: Keys or the grouped items from which group_d can be accessed
-        """
-        #Process the groups and print the grouped results
-        #Making group_k into a list and sort it
-        group_k = sorted(list(group_k))
-        group_data = []
-        for row in group_k:
-            row_data = []
-            for v in self.vp:
-                cells = []
-                for f in self.aggfunc:
-                    cell = f_aggfunc(group_d[v][row], f, need_sort=True) 
-                    if cell == None:
-                        cell = self.missing_char
-                    cells.append(cell)
-                row_data += cells
-            group_data.append(list(row) + row_data)
-        return group_data
-
-    def create_group_heading(self):
-        #Set the heading of the first column of the new table
-        # self.heading has the names colX, colY ...
-        # where X, Y are the field numbers from the input file
-        # and the order is by rp, cp, vp
-        groupheading = []
-        for i in range(self.rp):
-            groupheading += ['group({})'.format(self.heading[i])]
-        for v in self.vp:
-            aggfuncheading = [i+'({})'.format(self.heading[v]) for i in self.aggfunc]
-            groupheading += aggfuncheading 
-        return groupheading
-
-    def group(self):
-        group_d, group_k = self.create_groups()
-        self.data = self.process_groups(group_d, group_k)
-        self.heading = self.create_group_heading()
-    
-class Pivot(Table):
-    def __init__(self, row_k=1, col_k=2, val_k=None, f=None, summary=False,
-                 src=None, delim=' ', heading=None, data=None,
-                 max_fields=0, h1=False, fields=None,
-                 missing_char='-', summaryf=None, rowsummary=True, colsummary=True, skip_rows=0):
-        """
-        - Get the necessary arguments for Pivot table, rest are passed as kwargs for Table
-        - The defaults are set in line with the results of the commong output of 
-        `sort | uniq -c` ; 
-        - count is the first field, so it is value
-        - row is the second field, because it is usually the time stamp
-        - column is the third field, because it is the next key
-        """
-        self.row_k = row_k
-        self.col_k = col_k
-        self.rowsummary = rowsummary
-        self.colsummary = colsummary
-        #If val_k is passed we will need to use that column
-        if val_k != None:
-            self.val_k = val_k
-        #Otherwise we need to use some statistical summary
-        else:
-            pass
-        self.aggfunc = f
-        self.summary = summary
-        self.summaryfunc = []
-        if summary:
-            self.summaryfunc = [self.aggfunc]
-        if summaryf:
-            self.summaryfunc += summaryf
-        self.summarydata = {'row':{'heading':[], 'data':[]},
-                            'col':{'heading':[], 'data':[]}}
-        #Get the function initialised with the super init
-        super().__init__(src, delim, heading, data,
-                         max_fields, h1, fields,
-                         missing_char, skip_rows)
-
-    def pivot(self):
-        """Pivot on row index and column index with an aggregation function applied on value index"""
-        #row pointer as the result will be got from the table in the order r, c, v
-        # The order comes from da_tool when handling fields needed for table creation    
-        rp = 0 
-        cp = 1
-        vp = 2
-        row_v = set()
-        col_v = set()
-        #Pivot_d
-        # 'Row1' : { 'Col1': [value_list], 'Col2': [value_list] },
-        # 'Row2' : { 'Col1': [value_list], 'Col2': ... }
-        pivot_d = defaultdict(dict)
-        for d in self.data:
-            #Get the row index, if it's None, use nan
-            row_v.add(d[rp] or nan)
-            #Get the column index, if it's None, use nan
-            col_v.add(d[cp] or nan)
-            #Get the values in a list for each rowindex, colindex, if it's None use 0
-            if not pivot_d[d[rp]].get(d[cp]):
-                pivot_d[d[rp]][d[cp]] = []
-            pivot_d[d[rp]][d[cp]].append(d[vp] or 0)
-        #Making col_v into a list and sort it
-        col_v = sorted(list(col_v))
-        row_v = sorted(list(row_v))
-        #heading item for output made from pivot_heading and columns
-        pivot_data = []
-        for row in row_v:
-            col_r = []
-            for col in col_v:
-                data = sorted(pivot_d[row].get(col, []))
-                cell = f_aggfunc(data, self.aggfunc) or self.missing_char
-                col_r.append(cell)
-            pivot_data.append([row, *col_r])
-        self.data = pivot_data
-        self.pivotdata = pivot_data
-        #If summary is needed, running on the resulting pivot table
-        #Rest heading, Construct pivot heading using the parent Table's heading
-        self.row_v = row_v
-        self.col_v = col_v
-        #Set the heading of the first column of the pivot table
-        # self.heading has the names colX, colY, colZ  ...
-        # where X, Y, Z are the field numbers from the input file
-        # and the order is by rp, cp, vp
-        self.heading = ['{}({}/{})'.format(self.aggfunc, self.heading[rp], self.heading[cp])]
-        self.heading += self.col_v
-        self.pivotheading = self.heading
-        #Reset max_fields
-        self.max_fields = len(self.heading)        
-        summary_data = pivot_data.copy()
-        summary_heading = self.heading.copy()
-        for func in self.summaryfunc:
-            self.add_summary(summary_data, summary_heading, func,
-                             rowsummary=self.rowsummary, colsummary=self.colsummary)
-            self.data[-1] += ['*']*len(self.summaryfunc)
-
-    def add_summary(self, summary_data, summary_heading, func,
-                    rowsummary=True,
-                    colsummary=True):
-        """Add a summary column for the resulting pivot table.
-        2 options, summarise the pivoted table's rows and/or summarise the pivoted
-        table's columns"""
-        if rowsummary:
-            self.summarydata['row']['heading'].append(':RSummary({}):'.format(func))
-            self.heading.append(':RSummary({}):'.format(func))        
-            #Summary for each row_index, using the pivot result
-            # row[1:]->First row is index
-            for n, row in enumerate(summary_data):
-                #To list as the f_aggfunc for first/last cannot handle filter
-                # If result is None, use missing char
-                data = list(filter(lambda x:x!=self.missing_char,
-                                     row[1:]))
-                result = f_aggfunc(data, func, need_sort=True)
-                if result == None:
-                    result = self.missing_char
-                sum_row = result
-                self.data[n].append(sum_row)
-                self.summarydata['row']['data'].append(sum_row)
-
-        if colsummary:
-            self.summarydata['col']['heading'].append(':CSummary({}):'.format(func))
-            sum_col=[':CSummary({}):'.format(func)]
-            #Summary for each col_index, using the pivot result
-            # Appended to the table
-            # The last value will be a summary of the summaries of the row index
-            for n, col in enumerate(summary_heading[1:], start=1):
-            #To list as the f_aggfunc for first/last cannot handle filter
-            # If result is none, use missing_char
-                data=list(filter(lambda x:x!=self.missing_char,
-                                 [i[n] for i in summary_data]))
-                result = f_aggfunc(data, func, need_sort=True)
-                #If result is None, replace it with missing_char
-                if result == None:
-                    result = self.missing_char
-                sum_col.append(result)
-            self.data.append(sum_col)
-            self.summarydata['col']['data'].append(sum_col)
-
-    def to_ascii_table(self):
-        #Intialise summary_rows as 0
-        summary_rows = 0
-        #If we have column key, that means, we are using the proper pivot
-        # get the summary rows as the length of the summary function list
-        # AND colsummary is TRUE
-        if self.col_k and self.colsummary:
-            summary_rows = len(self.summaryfunc)
-        return super().to_ascii_table(heading_border=True,
-                                      summary=summary_rows)
