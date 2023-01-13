@@ -1,4 +1,4 @@
-from math import nan, ceil, floor, isnan
+from math import nan, ceil, floor
 import statistics as stats
 from io import BytesIO #Convert image into bytes
 import base64 #For image base64 code

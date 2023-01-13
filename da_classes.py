@@ -8,6 +8,7 @@ from collections import defaultdict, Counter
 # so that get_daflat.py can ignore and the functions are in global scope
 from da_utils import *
 from da_custom import *
+from operator import itemgetter
 
 global missing_char
 missing_char = '-'
@@ -54,6 +55,8 @@ class Table(object):
         self.data, self.data_for_get_fields = tee(self.data, 2)
         #Keep a field index map of input and output
         self.field_map = dict(zip(self.fields, range(self.max_fields)))
+        if len(self.fields) >= self.max_fields:
+            self.fields = self.fields[:max_fields-1]
 
     def add_row(self, row):
         self.data.append(row)
@@ -271,13 +274,26 @@ class Table(object):
     def tocsv(self, disable_heading=False):
         self.pipe(delim=',')
 
-    def sort(self):
-        self.data = sorted(self.data, key=1)
-        pass
+    def sort(self, key=None, reverse=True):
+        if key == None:
+            key = [0]
+        self.data = sorted(self.data, key=itemgetter(*key), reverse=reverse)
 
     def filterfunc(self, pattern):
         """
-        f1 > 2 AND f3 > 5
+        format:
+         F1 AND F2 AND F3 ...
+         where F1 is 
+          fN operator operand
+        
+        Operand1: Has to be of the format fN, where N is a number and indicates field number. (zero-indexed)
+        Operand2: If wrapped under quotes (double/single), interpreted as string and only string operators are applied.
+          If not wrapped under quoted, interpreted as floating point numbers and numerical operations are applied
+        Numerical operators:
+         ==, !=, >=, <=, >, <
+        String operators:
+         == - include rows with string op2 (case sensitive)
+         != - exclude rows with string op2 (case sensitive)
         """
         function_l = []
         for i in pattern.partition('AND'):
@@ -287,15 +303,37 @@ class Table(object):
             action = [a.strip() for a in i.split()]
             op1 = int(action[0][1:])
             opr = action[1]
-            op2 = float(action[2])
-            if opr in ('>', '<', '==', '!=', '<=', '>='):
-                function_l.append('float(data[{}]) {} {}'.format(op1, opr, op2))
-        self.filterfunc = function_l
-            
+            op2 = action[2]
+            #Check if the second operand is string or number
+            # Use quotes around the operand to check this
+            if op2[0] in (",", '"') and op2[-1] in (",", '"'):
+                op2_type = 'string'
+            else:
+                op2_type = 'float'
+            #numerical oerations
+            if op2_type == 'float':
+                if opr in ('>', '<', '==', '!=', '<=', '>='):
+                    function_l.append('float(data[{}]) {} {}'.format(op1, opr, op2))
+            #String operations
+            elif op2_type == 'string':
+                if opr == '===':
+                    opr_use = '=='                    
+                    function_l.append('data[{}] {} {}'.format(op1, opr_use, op2))
+                elif opr == '!==':
+                    opr_use = '!='                    
+                    function_l.append('data[{}] {} {}'.format(op1, opr_use, op2))
+                elif opr in ('=='):
+                    opr_use = '=='
+                    function_l.append('data[{}].casefold() {} {}.casefold()'.format(op1, opr_use, op2))
+                elif opr in ('!='):
+                    opr_use = '!='
+                    function_l.append('data[{}].casefold() {} {}.casefold()'.format(op1, opr_use, op2))
+        return function_l
+
     def filtermap(self, data):
         conditions_true = 0
         #Cycle through each action
-        for i in self.filterfunc:
+        for i in self.function_l:
             #Check if it evaluates to False
             if not eval(i):
                 #If it is False, return None (chained AND is implemented)
@@ -308,7 +346,8 @@ class Table(object):
         if conditions_true and conditions_true !=0:
             return data
 
-    def filterrows(self):
+    def filterrows(self, pattern):
+        self.function_l = self.filterfunc(pattern)
         filter_results = list(filter(None, map(self.filtermap, self.data)))
         self.data = filter_results
 
@@ -566,7 +605,6 @@ class Table(object):
             summary_rows = len(self.summaryfunc)
         return self.to_ascii_table(heading_border=True,
                                    summary=summary_rows) 
-
 
 class ColumnTable(Table):
     """
