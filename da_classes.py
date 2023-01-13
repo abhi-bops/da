@@ -107,6 +107,8 @@ class Table(object):
         #Compute max fields, needed for imputation of data
         if not self.max_fields:
             self.max_fields = max([len(i) for i in lines_for_max])
+        #Fix the self.fields to be within the max_fields    
+        self.fields = list(filter(lambda x:x <= self.max_fields, self.fields))
         #Impute missing data with missing_char
         self.data = self.impute_missing(lines_for_impute)
     
@@ -127,7 +129,8 @@ class Table(object):
                 filter_info = dict(enumerate(info))
                 #If field exists give the result, else return None
                 # This should also preserve the order of fields
-                info = [filter_info.get(f) for f in self.fields]
+                info = list(filter(lambda x:x!=None, 
+                                   [filter_info.get(f, None) for f in self.fields]))
             #If an empty string
             if not info or info == ['']:
                 continue
@@ -146,10 +149,6 @@ class Table(object):
             #Strip any spaces within the column elements
             line = [i.strip() if i else self.missing_char for i in line]
             yield line
-
-    def get_max_fieldlen(self):
-        """Get the number of intended columns"""
-        return self.max_fields
 
     def fill_heading(self):
         """Ensure heading for the expected columns have names, by choice or padding"""
@@ -175,7 +174,9 @@ class Table(object):
             #Otherwise generate a list using the max_fields
             else:
                 fieldN = list(range(self.max_fields))
-        field_data = []
+        #If fieldN is passed, make sure it is within limits
+        else:
+            fieldN = list(filter(lambda x:x <= self.max_fields, self.fields))
         #self.fields is the field numbers of the input used to build the table
         #fieldN is the requested fields from (mapped to the input and not the table)
         #Mask generates a on-off list to filter only the fieldN data
@@ -348,7 +349,7 @@ class Table(object):
 
     def filterrows(self, pattern):
         self.function_l = self.filterfunc(pattern)
-        filter_results = list(filter(None, map(self.filtermap, self.data)))
+        filter_results = list(filter(lambda x:x!=None, map(self.filtermap, self.data)))
         self.data = filter_results
 
     def transpose(self):
