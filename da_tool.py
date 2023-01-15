@@ -4,7 +4,8 @@
 from math import isnan
 from collections import Counter
 import sys
-from itertools import chain
+from itertools import chain, combinations
+import logging
 #The classes which make the script work
 from da_classes import *
 #Commonly used functions
@@ -15,6 +16,10 @@ from da_custom import *
 from da_classes import *
 #Arguments are described here
 from da_help import parse_args
+
+#Logging settings
+logger = logging.getLogger('da_tool')
+logger.setLevel(logging.DEBUG)
 
 #Character for CLI bar graphs
 if sys.getfilesystemencoding() == 'utf-8':
@@ -85,6 +90,7 @@ if __name__=='__main__':
 
     #Filter fields
     pattern = args.get('pattern')
+    tag = args.get('tag')
 
     #Handle fields
     ##Common fields, prefer action's option first otherwise use the common option
@@ -145,17 +151,18 @@ if __name__=='__main__':
                   row_k=rowind, col_k=columnind,
                   val_k=valueind, f=aggfunc[0], summary=summary,
                   heading=heading, summaryf=summaryf, rowsummary=rowsummary,
-                  colsummary=colsummary, skip_rows=skip_rows)
+                  colsummary=colsummary, skip_rows=skip_rows, action=action)
     elif action == 'group':
         T = Table(src='-', delim=delim, fields=fields, h1=h1,
                   row_k=rowind, val_k=valueind, f=aggfunc, 
-                  heading=heading, skip_rows=skip_rows)
+                  heading=heading, skip_rows=skip_rows, action=action)
     elif action == 'topn':
         T = Table(src='-', delim=delim, fields=fields, h1=h1,
                   row_k=rowind, val_k=valueind, f=aggfunc, 
-                  heading=heading, top_k=topind, n=n, skip_rows=skip_rows)
+                  heading=heading, top_k=topind, n=n, skip_rows=skip_rows, action=action)
     else:
-        T = Table(src='-', delim=delim, fields=fields, h1=h1, heading=heading, skip_rows=skip_rows)
+        T = Table(src='-', delim=delim, fields=fields, h1=h1, 
+                  heading=heading, skip_rows=skip_rows, action=action)
 
     #Actions to do
     #grouping
@@ -423,10 +430,9 @@ if __name__=='__main__':
                 hT = Table(data=hist_table, heading=heading)
                 print(hT.to_ascii_table())
 
-
     #Filtering rows
     if action == 'filter':
-        T.filterrows(pattern)
+        T.filterrows(pattern, tag=tag)
         if fast:
             print(T.fast_ascii_table())
         elif rich:
@@ -452,4 +458,32 @@ if __name__=='__main__':
         elif pipe:
             T.pipe(disable_heading=noheading, delim=pipe)
         else:
-            print(T.to_ascii_table(), flush=True)               
+            print(T.to_ascii_table(), flush=True) 
+
+    if action == 'corr':
+        #Get only the data from the fields
+        Tdata = T.get_fields(fields)
+        cor_d = defaultdict(dict)
+        for i in combinations(fields, 2):
+            x = i[0]
+            y = i[1]
+            x_heading = Tdata.get(x)[0]
+            y_heading = Tdata.get(y)[0]
+            cor_d[x_heading][x_heading] = 1
+            cor_d[y_heading][y_heading] = 1
+            Cx = Column(Tdata[x][1])
+            Cy = Column(Tdata[y][1])
+            cor_d[x_heading][y_heading] = round(correlation(Cx, Cy), 3)
+            cor_d[y_heading][x_heading] = cor_d[x_heading][y_heading]
+        print(cor_d)
+        heading = cor_d.keys()
+        for i in heading:
+            print('\t{}'.format(i), end='')
+        print()
+        for i in heading:
+            print('{}\t'.format(i), end='')
+            for j in heading:
+                print('{}\t'.format(cor_d[i][j]), end='')
+            print()
+
+

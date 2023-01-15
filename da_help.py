@@ -105,6 +105,7 @@ def parse_args():
     for i in ['fields', 'tocsv', 'delim', 'pipe', 'pipewith', 'heading', 'skip_rows', 'h1', 'fast', 'rich', 'noheading']:
         filtergroup.add_argument(*args_d[i][0], **args_d[i][1]) 
     filtergroup.add_argument('-p', '--pattern', type=str, help="Pattern to use to filter")
+    filtergroup.add_argument('--tag', action="store_true", help="Tag the row under column 'filtered' instead of filtering it out", default=False)
 
     #sort: options
     sortgroup = actions.add_parser(name='sort', help="Sort table by column fields")
@@ -116,6 +117,11 @@ def parse_args():
     sortgroup.add_argument('--desc', action='store_true', 
                             help='Sort by descending order. Default is ascending',
                             default=False)
+
+    #Correlation opions
+    corrgroup = actions.add_parser(name='corr', help="Sort table by column fields")
+    for i in ['fields', 'tocsv', 'delim', 'pipe', 'pipewith', 'heading', 'skip_rows', 'h1', 'fast', 'rich', 'noheading']:
+        corrgroup.add_argument(*args_d[i][0], **args_d[i][1])  
 
     #summary: options
     aggregategroup = actions.add_parser(name='summary', help="Similar to pandas dataframe describe(), gives a statistical summary of the result, All values are treated as continous data")

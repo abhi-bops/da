@@ -17,12 +17,12 @@ class Table(object):
     #Define the basic arguments needed for table
     # Use kwargs for the rest
     def __init__(self, src=None, delim=' ', heading=None, data=None,
-                 max_fields=0, h1=False, fields=None,
+                 h1=False, fields=None, action=None,
                  missing_char='-', skip_rows=0,
                  **kwargs):
-        self.action = 'table'
         #expand kwargs
         args = dict(kwargs)
+        self.action = action
         self.args = args
         #Input field delimiter
         self.delim = delim
@@ -35,7 +35,9 @@ class Table(object):
             self.heading = heading
         else:
             self.heading = []
-        self.max_fields = max_fields #???
+        #Create a max_fields field to limit the data 
+        # start with 0 and then populate later in get_input
+        self.max_fields = 0 
         #Character will be used to impute missing data
         self.missing_char = missing_char
         #Check if fields are passed, we only need to filter data from those
@@ -56,7 +58,7 @@ class Table(object):
         #Keep a field index map of input and output
         self.field_map = dict(zip(self.fields, range(self.max_fields)))
         if len(self.fields) >= self.max_fields:
-            self.fields = self.fields[:max_fields-1]
+            self.fields = self.fields[:self.max_fields-1]
 
     def add_row(self, row):
         self.data.append(row)
@@ -103,14 +105,10 @@ class Table(object):
         elif self.heading == []:
             #If not use the fields numbers as hint for heading
             self.heading = ['col'+str(i) for i in self.fields]
-        lines_for_max, lines_for_impute = tee(self.src_data, 2)
-        #Compute max fields, needed for imputation of data
-        if not self.max_fields:
-            self.max_fields = max([len(i) for i in lines_for_max])
+        #Impute missing data with missing_char
+        self.data = self.impute_missing(self.src_data)
         #Fix the self.fields to be within the max_fields    
         self.fields = list(filter(lambda x:x <= self.max_fields, self.fields))
-        #Impute missing data with missing_char
-        self.data = self.impute_missing(lines_for_impute)
     
     def __repr__(self):
         return 'Table: delim="{}", heading={}, fields={}'.format(self.delim, self.heading, self.fields)
@@ -124,6 +122,7 @@ class Table(object):
             #Remove any leading spaces and split by the delim
             info = line.strip().split(self.delim)
             #If fields param is passed, Select only those fields
+            self.max_fields = max(len(info), self.max_fields)
             if self.fields:
                 #Using dict and enumerate to access fields by numbers
                 filter_info = dict(enumerate(info))
@@ -152,7 +151,7 @@ class Table(object):
 
     def fill_heading(self):
         """Ensure heading for the expected columns have names, by choice or padding"""
-        #If it is under or equal, pad it
+        #If it is under or equal, pad it    
         if len(self.heading)<=self.max_fields:
             #Pad heading if there is not enough
             self.heading += ['col{}'.format(i) for i in range(len(self.heading), self.max_fields)]
@@ -167,7 +166,7 @@ class Table(object):
          field_number1: ...}
         """
         #If no fields is passed to get_fields
-        if not fieldN:
+        if fieldN == [] or fieldN == None:
             #Check if we have fields populated from object
             if self.fields:
                 fieldN = self.fields
@@ -179,14 +178,13 @@ class Table(object):
             fieldN = list(filter(lambda x:x <= self.max_fields, self.fields))
         #self.fields is the field numbers of the input used to build the table
         #fieldN is the requested fields from (mapped to the input and not the table)
-        #Mask generates a on-off list to filter only the fieldN data
-        #ind_mask = [1 if i in fieldN else 0 for i in self.fields]
+        #field_d = {field-number: [ heading, [data]], field-number: [h, [data]], ...}        
         field_d = {k: [self.heading[n], []] for n, k in enumerate(fieldN)}
-        for row in self.data_for_get_fields:
+        #populate data for field_d
+        #for row in self.data_for_get_fields:
+        for row in self.data:
             for n, k in enumerate(fieldN):
                 field_d[k][1].append(row[n])
-        #data = list(chain([list(compress(self.heading, ind_mask))],
-        #[map(lambda x: list(compress(x, ind_mask)), self.data)]))
         return field_d
 
     def fast_ascii_table(self, heading_border=True, summary=False,
@@ -297,17 +295,16 @@ class Table(object):
          != - exclude rows with string op2 (case sensitive)
         """
         function_l = []
-        for i in pattern.partition('AND'):
+        #Split the filter checks by "AND"
+        for i in pattern.split('AND'):
             i = i.strip()
-            if i == 'AND' or i == '':
-                continue
             action = [a.strip() for a in i.split()]
             op1 = int(action[0][1:])
             opr = action[1]
             op2 = action[2]
             #Check if the second operand is string or number
             # Use quotes around the operand to check this
-            if op2[0] in (",", '"') and op2[-1] in (",", '"'):
+            if op2[0] in ("'", '"') and op2[-1] in ("'", '"'):
                 op2_type = 'string'
             else:
                 op2_type = 'float'
@@ -333,24 +330,45 @@ class Table(object):
 
     def filtermap(self, data):
         conditions_true = 0
-        #Cycle through each action
+        #Cycle through each check
         for i in self.function_l:
             #Check if it evaluates to False
             if not eval(i):
-                #If it is False, return None (chained AND is implemented)
+                #If it is False, skip checking other checks (chained AND is implemented)
                 conditions_true = False
-                return None
+                continue
             else:
-                #Action return True, mark it as true, move to next action
+                #check returns True, mark it as true, move to next check
                 conditions_true = True
-        #If conditions_true remained True, return the row
-        if conditions_true and conditions_true !=0:
-            return data
+        #If tagging is needed the rows needs to be retained
+        # and additional column needs to be added
+        #Else return only the row which passes all checks
+        if self.tag == True:
+            #If conditions_true remained True, 
+            if conditions_true and conditions_true !=0:
+                return data + [self.pass_tag]
+            else:
+                return data + [self.fail_tag]
+        else:
+            # And if tagging is not needed, return the row 
+            # and If conditions_true remained True, then only return the row
+            if conditions_true and conditions_true !=0:
+                return data
+            # else return None
+            else:
+                return None
 
-    def filterrows(self, pattern):
+    def filterrows(self, pattern, tag=False):
+        self.tag = tag
+        self.pass_tag = 'Yes'
+        self.fail_tag = 'No'
+        self.tag_heading = 'tagged'
         self.function_l = self.filterfunc(pattern)
         filter_results = list(filter(lambda x:x!=None, map(self.filtermap, self.data)))
         self.data = filter_results
+        #if tagging is enabled, add the heading 'tagged'
+        if self.tag == True:
+            self.heading += [self.tag_heading]
 
     def transpose(self):
         """
@@ -862,3 +880,5 @@ class Column(object):
             result.append(['most', '{} ({})'.format(Ctr.most_common()[0][0], Ctr.most_common()[0][1])])
             result.append(['least', '{} ({})'.format(Ctr.most_common()[-1][0], Ctr.most_common()[-1][1])])
         return dtype, result
+
+

@@ -1,4 +1,4 @@
-from math import nan, ceil, floor
+from math import nan, ceil, floor, sqrt
 import statistics as stats
 from io import BytesIO #Convert image into bytes
 import base64 #For image base64 code
@@ -465,4 +465,18 @@ def rich_print_layout(rows, columns, data_l):
     print(str_output)    
     return layout
         
+def correlation(Cx, Cy):
+    """
+    Cx and Cy is column classes
+    """
+    n = len(Cx)
+    C_xy = (Cx*Cy)
+    C_xx = (Cx*Cx)
+    C_yy = (Cy*Cy)
+    num = n*sum(C_xy) - (sum(Cx)*sum(Cy))
+    den1 = (n*sum(C_xx)-(sum(Cx)**2))
+    den2 = (n*sum(C_yy)-(sum(Cy)**2))
+    den = sqrt(den1*den2)
+    r = num/den
+    return r
 

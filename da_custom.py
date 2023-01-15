@@ -201,7 +201,7 @@ def f_filemap(data, other=None):
     """
     f1:f_filemap:file
 
-    file format has to be key value 
+    file format has to be key value     
     key being the data from f1
     value will be in the result
     since it uses a dictionary to get key,value pair, only the last match will take effect
@@ -221,4 +221,17 @@ def f_filemap(data, other=None):
             row = row.strip('\n').split(' ')
             file_data[row[key]] = row[value]
     return [file_data.get(i, '') for i in data]
+
+def f_tag(data, other=None):
+    """
+    "f1:f_tag:value1,tag1;value2,tag2;..."
+    """
+    tag_d = {}
+    print(data, other)
+    for i in other.split(';'):
+        info = dict(enumerate(map(lambda x:x.strip(), i.split(','))))
+        print(info)
+        tag_d[info.get(0)] = info.get(1, '-')
+    print(tag_d)
+    return [tag_d.get(i, '-') for i in data]
 
