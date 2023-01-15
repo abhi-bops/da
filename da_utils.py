@@ -210,6 +210,8 @@ def f_aggfunc(data, aggfunc, need_sort=False):
         return data[int(p*len(data))]
     if aggfunc in ('stddev'):
         return round(stats.pstdev(data), 2)
+    if aggfunc in ('diff'):
+        return max(data)-min(data)
     #If no matches return None
     return None
 

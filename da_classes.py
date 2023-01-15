@@ -4,6 +4,7 @@ from itertools import tee, starmap, repeat, groupby
 from re import L
 import statistics as stats
 from collections import defaultdict, Counter
+from copy import deepcopy
 #Importing from da_* should be from da_* import *
 # so that get_daflat.py can ignore and the functions are in global scope
 from da_utils import *
@@ -422,7 +423,8 @@ class Table(object):
             self.summaryfunc = [self.aggfunc]
         if self.args['summaryf']:
             self.summaryfunc += self.args['summaryf']
-        self.summaryfunc = list(set(self.summaryfunc))
+        #Order preserving - https://www.peterbe.com/plog/fastest-way-to-uniquify-a-list-in-python-3.6
+        self.summaryfunc = list(dict.fromkeys(self.summaryfunc))
         self.summarydata = {'row':{'heading':[], 'data':[]},
                             'col':{'heading':[], 'data':[]}}
 
@@ -462,8 +464,10 @@ class Table(object):
                 cell = f_aggfunc(data, self.aggfunc) or self.missing_char
                 col_r.append(cell)
             pivot_data.append([row, *col_r])
-        self.data = pivot_data
         self.pivotdata = pivot_data
+        #Deep copy to avoid overwriting pivotdata 
+        # as it should not change over multiple summaries
+        self.data = deepcopy(pivot_data)
         #If summary is needed, running on the resulting pivot table
         #Rest heading, Construct pivot heading using the parent Table's heading
         self.row_v = row_v
@@ -477,10 +481,9 @@ class Table(object):
         self.pivotheading = self.heading
         #Reset max_fields
         self.max_fields = len(self.heading)        
-        summary_data = pivot_data.copy()
         summary_heading = self.heading.copy()
         for func in self.summaryfunc:
-            self.add_summary(summary_data, summary_heading, func,
+            self.add_summary(self.pivotdata, summary_heading, func,
                              rowsummary=self.rowsummary, colsummary=self.colsummary)
             self.data[-1] += ['*']*len(self.summaryfunc)
 

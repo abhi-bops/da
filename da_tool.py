@@ -137,8 +137,6 @@ if __name__=='__main__':
     #Creating the table object
     #handle pivot separately, rest is default Table object
     if action == 'pivot':
-        if summaryf:
-            summaryf = [f.strip() for f in summaryf.split(',')]
         #Only change rowsummary/colsummary, when it is different, use xor to check that
         if rowsummary ^ colsummary:
             rowsummary = rowsummary
@@ -149,7 +147,7 @@ if __name__=='__main__':
             colsummary = True
         T = Table(src='-', delim=delim, fields=fields, h1=h1,
                   row_k=rowind, col_k=columnind,
-                  val_k=valueind, f=aggfunc[0], summary=summary,
+                  val_k=valueind, f=aggfunc, summary=summary,
                   heading=heading, summaryf=summaryf, rowsummary=rowsummary,
                   colsummary=colsummary, skip_rows=skip_rows, action=action)
     elif action == 'group':

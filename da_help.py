@@ -154,13 +154,14 @@ def parse_args():
                             default=None)
     pivotgroup.add_argument('-c', '--columnind', type=int, help="Position of the data that needs to be used as column index. Starts from 0.", default=None, metavar='N')
     pivotgroup.add_argument('-v', '--valueind', type=int, help="Position of data that needs to be added as value to use on the cell. Starts from 0.", default=None, metavar='N')
-    pivotgroup.add_argument('--aggfunc', type=str, nargs='+', help="Agg function to use if there are multiple values for the row x column combination. Default is %(default)s",
+    pivotgroup.add_argument('--aggfunc', type=str, help="Agg function to use if there are multiple values for the row x column combination. Default is %(default)s",
                             choices=['first', 'last', 'concat', 'max', 'min', 'sum', 'count', 'mean', 'median', 'stdev'],
-                            default=['first'])
+                            default='first')
     pivotgroup.add_argument('--summary', action='store_true',
                             help="Add a summary column using the same agg function, the summary is on the resulting cells with the aggfunc applied on them.",
                             default=False)
     pivotgroup.add_argument('--summaryf', type=str,
+                            nargs='+',
                             help="Running summary functions on the results, use this if you want multiple summaries",
                             default=None)
     pivotgroup.add_argument('--rowsummary', action='store_true',
