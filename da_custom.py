@@ -1,6 +1,5 @@
-import fileinput
 from da_utils import *
-from math import nan
+from math import nan, isnan
 from datetime import datetime
 from itertools import starmap
 import csv

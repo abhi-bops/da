@@ -11,9 +11,6 @@ from da_utils import *
 from da_custom import *
 from operator import itemgetter
 
-global missing_char
-missing_char = '-'
-
 class Table(object):
     #Define the basic arguments needed for table
     # Use kwargs for the rest
@@ -53,13 +50,9 @@ class Table(object):
         #Data is a list of lists; each row is a list; and in each row-list, the column items are in list
         else:
             self.build_table_from_data(data)
-        #Fill the headings, if there are some missing
-        self.fill_heading()
         self.data, self.data_for_get_fields = tee(self.data, 2)
         #Keep a field index map of input and output
         self.field_map = dict(zip(self.fields, range(self.max_fields)))
-        if len(self.fields) >= self.max_fields:
-            self.fields = self.fields[:self.max_fields-1]
 
     def add_row(self, row):
         self.data.append(row)
@@ -102,15 +95,9 @@ class Table(object):
         #If the first line is heading, pop it out
         if self.h1:
             self.heading = next(self.src_data)
-        #Otherwise check if heading is populated by user input
-        elif self.heading == []:
-            #If not use the fields numbers as hint for heading
-            self.heading = ['col'+str(i) for i in self.fields]
         #Impute missing data with missing_char
         self.data = self.impute_missing(self.src_data)
-        #Fix the self.fields to be within the max_fields    
-        self.fields = list(filter(lambda x:x <= self.max_fields, self.fields))
-    
+        
     def __repr__(self):
         return 'Table: delim="{}", heading={}, fields={}'.format(self.delim, self.heading, self.fields)
        
@@ -220,6 +207,9 @@ class Table(object):
             summary = summary_rows            
         row_counter = 0
         rows = list(self.data)
+        #If heading was not yet populated, populate it now
+        if not self.heading:
+            self.fill_heading()
         if not rows:
             return None
         result = ''
