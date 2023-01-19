@@ -1,7 +1,7 @@
 from da_utils import *
 from math import nan, isnan
 from datetime import datetime
-from itertools import starmap
+from itertools import starmap, repeat
 import csv
 
 def f_dummyfunctionfortransform(data, param):
@@ -10,7 +10,10 @@ def f_dummyfunctionfortransform(data, param):
     data is a list of values
     parameter is an element, if no parameter is passed, 
      - it will default to '' (an empty string)
-     - don't use params that start with "f" - this will get treated as field (fN)
+     - if it starts with 'f' - this will cause the parser to treat the argument as another column.
+       The number after 'f' determines which column number to use
+     - if it does not start with 'f' - the param is passed into this function
+     - param should not contain "|" or "=" or ":" as they are treated specially
 
     Define functions here that can be used in transform command
     """
@@ -22,7 +25,7 @@ def f_dummyfunctionfortransform(data, param):
 
 def f_share(data, other=None):
     """
-    fcolA:f_normalise:fcolB; compute for each colA: colA/total(colA)
+    fcolA:f_share - compute share of value in the column. colA: colA/total(colA)
 
     Compute share of each value of the column over the sum of values in the column
     """
@@ -85,6 +88,15 @@ def f_cumsum(data, other=None):
         out.append(sum_tmp)
     return out
 
+def f_allsum(data, other=None):
+    """ 
+    fcolA:f_allsum; sum(colA)
+
+    Compute sum of the column data
+    """
+    valid_data = list(filter(lambda x:x != None, map(convert_float, data)))
+    return repeat(sum(valid_data), len(data))
+
 def f_formatunixtime(data, other="%H:%M:%S"):
     """
     fcolA:f_formatunixtime:string
@@ -114,24 +126,47 @@ def f_shift(data, other=-1):
 
     Shift data by "other" units, positive is to move the column downwards (lags), negative is to move the column forwards (leads)
     """
+    #Check for validity of "other"
+    try: 
+        other = int(other)
+    except (ValueError, TypeError):
+        other = -1
     out = []
-    data_shift = data.copy()
+    #Create a copy of "data"
+    # It is passed as a list, so should not overwrite it
+    data = data.copy()
+    #If the "other" is more than the length of the data
+    # return nan
+    if abs(other) > len(data):
+        return repeat(nan, len(data))
+    #Shift by down if positive
     if other > 0:
         for i in range(0, abs(other)):
-            data_shift.pop()
-            data_shift.insert(0, nan)
+            data.pop()
+            data.insert(0, nan)
+    #Shift by up if negative
     else:
         for i in range(0, abs(other)):
-            data_shift.pop(0)
-            data_shift.append(nan)
-    return data_shift
+            data.pop(0)
+            data.append(nan)
+    return data
 
 def f_lag(data, other=1):
+    #Check for validity of "other"
+    try: 
+        other = int(other)
+    except (ValueError, TypeError):
+        other = 1
     #Make it positive
-    other=abs(other)
+    other = abs(other)
     return f_shift(data, other)
 
-def f_lead(data, other=1):
+def f_lead(data, other=-1):
+    #Check for validity of "other"
+    try: 
+        other = int(other)
+    except (ValueError, TypeError):
+        other = 1
     #Make it negative
     other=abs(other)
     other = -1*other
