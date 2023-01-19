@@ -96,7 +96,11 @@ class Table(object):
         if self.h1:
             self.heading = next(self.src_data)
         #Impute missing data with missing_char
-        self.data = self.impute_missing(self.src_data)
+        if len(self.fields) > 0:
+            len_check = len(self.fields)
+        else:
+            len_check = self.max_fields
+        self.data = self.impute_missing(self.src_data, len_check)
         
     def __repr__(self):
         return 'Table: delim="{}", heading={}, fields={}'.format(self.delim, self.heading, self.fields)
@@ -124,13 +128,13 @@ class Table(object):
             #Generate field list
             yield info
 
-    def impute_missing(self, lines):
+    def impute_missing(self, lines, len_check):
         """Impute missing values on the dataset"""
-        #Iterate over each line, find if the total fields in that line < max_fields
+        #Iterate over each line, find if the total fields in that line < len_check
         # If it is, imput with the char field
         for line in lines:
-            if len(line) < self.max_fields:
-                need_fields = self.max_fields - len(line)
+            if len(line) < len_check:
+                need_fields = len_check - len(line)
                 line += [self.missing_char]*need_fields
             #Replace None values and ''
             #Strip any spaces within the column elements
