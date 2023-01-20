@@ -18,7 +18,6 @@ def f_dummyfunctionfortransform(data, param):
     Define functions here that can be used in transform command
     """
     out = [str(i) + str(param) for i in data]
-    print(out)
     return out
 
 ##Custom functions for transform
@@ -202,7 +201,6 @@ def f_sma(data, other=5):
             else:
                 start=n+window
             values = data[start:n]
-            print(values)
             sma = sum(values)/window
             out.append(sma)
     return out
@@ -261,11 +259,8 @@ def f_tag(data, other=None):
     "f1:f_tag:value1,tag1;value2,tag2;..."
     """
     tag_d = {}
-    print(data, other)
     for i in other.split(';'):
         info = dict(enumerate(map(lambda x:x.strip(), i.split(','))))
-        print(info)
         tag_d[info.get(0)] = info.get(1, '-')
-    print(tag_d)
     return [tag_d.get(i, '-') for i in data]
 

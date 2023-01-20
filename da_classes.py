@@ -1,7 +1,7 @@
 import fileinput
 from math import nan, ceil, inf
 from itertools import tee, starmap, repeat, groupby
-from re import L
+from re import A, L
 import statistics as stats
 from collections import defaultdict, Counter
 from copy import deepcopy
@@ -41,18 +41,29 @@ class Table(object):
         #Check if fields are passed, we only need to filter data from those
         if isinstance(fields, str):
             self.fields = list(map(lambda x:int(x.strip()), fields.split(',')))
+        elif fields == None:
+            self.fields = []
         else:
             self.fields = fields
         #If source is stdin or file
-        if src == '-':
-            self.src = '-'
+        if data == None:
+            if src == None:
+                self.src = '-'
+            else:
+                self.src = src
             self.build_table_from_source()
         #Data is a list of lists; each row is a list; and in each row-list, the column items are in list
         else:
             self.build_table_from_data(data)
         self.data, self.data_for_get_fields = tee(self.data, 2)
+        self.get_fieldmap()
+
+    def get_fieldmap(self): 
         #Keep a field index map of input and output
-        self.field_map = dict(zip(self.fields, range(self.max_fields)))
+        if self.fields == None or self.fields == []:
+            self.field_map = dict(zip(range(self.max_fields), range(self.max_fields)))
+        else:
+            self.field_map = dict(zip(self.fields, range(self.max_fields)))
 
     def add_row(self, row):
         self.data.append(row)
@@ -143,7 +154,7 @@ class Table(object):
 
     def fill_heading(self):
         """Ensure heading for the expected columns have names, by choice or padding"""
-        #If it is under or equal, pad it    
+        #If it is under or equal, pad it
         if len(self.heading)<=self.max_fields:
             #Pad heading if there is not enough
             self.heading += ['col{}'.format(i) for i in range(len(self.heading), self.max_fields)]
@@ -157,6 +168,10 @@ class Table(object):
         {field_number0: [heading_name, [row1, row2]],
          field_number1: ...}
         """
+        #To address bug where heading does not get populated
+        data = list(self.data)
+        self.fill_heading()
+        self.get_fieldmap()
         #If no fields is passed to get_fields
         if fieldN == [] or fieldN == None:
             #Check if we have fields populated from object
@@ -167,16 +182,15 @@ class Table(object):
                 fieldN = list(range(self.max_fields))
         #If fieldN is passed, make sure it is within limits
         else:
-            fieldN = list(filter(lambda x:x <= self.max_fields, self.fields))
+            fieldN = list(filter(lambda x:x < self.max_fields, fieldN))
         #self.fields is the field numbers of the input used to build the table
         #fieldN is the requested fields from (mapped to the input and not the table)
-        #field_d = {field-number: [ heading, [data]], field-number: [h, [data]], ...}        
-        field_d = {k: [self.heading[n], []] for n, k in enumerate(fieldN)}
+        #field_d = {field-number: [ heading, [data]], field-number: [h, [data]], ...}  
+        field_d = {n: [self.heading[self.field_map[n]], []] for n in fieldN}
         #populate data for field_d
-        #for row in self.data_for_get_fields:
-        for row in self.data:
-            for n, k in enumerate(fieldN):
-                field_d[k][1].append(row[n])
+        for row in data:
+            for n in fieldN:
+                field_d[n][1].append(row[self.field_map[n]])
         return field_d
 
     def fast_ascii_table(self, heading_border=True, summary=False,
@@ -470,6 +484,7 @@ class Table(object):
         # self.heading has the names colX, colY, colZ  ...
         # where X, Y, Z are the field numbers from the input file
         # and the order is by rp, cp, vp
+        self.fill_heading() #to fix the heading bug
         self.heading = ['{}({}/{})'.format(self.aggfunc, self.heading[rp], self.heading[cp])]
         self.heading += self.col_v
         self.pivotheading = self.heading
@@ -538,7 +553,11 @@ class Table(object):
                     topn_d[row].append('-')
         data = self.flatten_d(topn_d)
         self.data = data
-        self.heading = [self.heading[self.row_k[0]]]
+        #Fix the heading bug, to populate it
+        self.fill_heading()
+        self.heading = ['({},{})->{}'.format(self.heading[self.field_map.get(self.row_k[0])], 
+                                          self.heading[self.field_map.get(self.row_k[1])], 
+                                          self.heading[self.field_map.get(self.val_k[0])])]
         self.heading += ['top{}'.format(i) for i in range(1, self.n+1)]
 
     def flatten_d(self, d):
@@ -597,6 +616,8 @@ class Table(object):
         # where X, Y are the field numbers from the input file
         # and the order is by rp, cp, vp
         groupheading = []
+        # Fix the heading bug to populate heading
+        self.fill_heading()
         for i in range(self.rp):
             groupheading += ['group({})'.format(self.heading[i])]
         for v in self.vp:

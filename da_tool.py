@@ -15,7 +15,7 @@ from da_custom import *
 #from da_graphs import * (Disabling this to speed up the script)
 from da_classes import *
 #Arguments are described here
-from da_help import parse_args
+from da_help import *
 
 #Logging settings
 logger = logging.getLogger('da_tool')
@@ -385,9 +385,9 @@ if __name__=='__main__':
                 counter = Counter(Cv[1])
                 cumshare = 0
                 for k, v in counter.items():
-                    share = round(int(v)/len(Cv[1])*100,2)
+                    share = int(v)/len(Cv[1])*100
                     cumshare += share
-                    row = [k, v, share, cumshare]
+                    row = [k, v, round(share, 2), round(cumshare, 2)]
                     if asciigraph:
                         width = 20
                         barlength = int((width*share)/100)
@@ -407,9 +407,9 @@ if __name__=='__main__':
                 cumshare = 0
                 for i in sorted(bin_d.keys()):
                     bin_s = "({}-{}]".format(i_old, i)
-                    share = round(bin_d[i]*100/total_count)
+                    share = bin_d[i]*100/total_count
                     cumshare += share
-                    row = [bin_s, bin_d[i], share, cumshare]
+                    row = [bin_s, bin_d[i], round(share, 2), round(cumshare, 2)]
                     if asciigraph:
                         width = 20
                         barlength = int((width*share)/100)
