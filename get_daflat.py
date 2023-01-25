@@ -18,12 +18,13 @@ import da_classes
 import da_tool
 import da_custom
 import da_graphs
+import da_help
 
 #We need the shebang line and the header line on top
 output_data = header
 #Add source code of each file
 # da_custom should be at first, as the transform custom functions need to be in global scope
-files = [da_custom, da_utils, da_classes, da_tool, da_graphs]
+files = [da_custom, da_help, da_utils, da_classes, da_tool]
 for f in files:
     source = inspect.getsource(f)
     #If it contains "from da", ignore that line, as we are importing

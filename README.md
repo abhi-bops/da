@@ -98,6 +98,7 @@ Creates Histogram out of the input fields
   -v N, --valueind N    Position of data that needs to be added as value to use on the cell. Starts from 0.
   --aggfunc {first,last,concat,max,min,sum,count,mean,median,stdev}
                         Agg function to use if there are multiple values for the row x column combination. Default is first
+  --row_share           Compute share of results of pivot table within each row.
   --summary             Add a summary column using the same agg function, the summary is on the resulting cells with the aggfunc applied on
                         them.
   --summaryf SUMMARYF [SUMMARYF ...]

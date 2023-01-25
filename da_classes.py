@@ -418,6 +418,7 @@ class Table(object):
         self.col_k = self.args['col_k']
         self.rowsummary = self.args.get('rowsummary') or False
         self.colsummary = self.args.get('colsummary') or False
+        self.row_share = self.args.get('row_share') or False
         #If val_k is passed we will need to use that column
         if self.args['val_k'] != None:
             self.val_k = self.args['val_k']
@@ -471,6 +472,11 @@ class Table(object):
                 data = sorted(pivot_d[row].get(col, []))
                 cell = f_aggfunc(data, self.aggfunc) or self.missing_char
                 col_r.append(cell)
+            #If row share needs to be computed
+            if self.row_share == True:
+                data = list(filter(lambda x:x is not nan, map(convert_float, col_r)))
+                total = sum(list(filter(lambda x:x != None, data)))
+                col_r = list(map(lambda x: round(x*100/total, 2) if x!=None else self.missing_char, data))
             pivot_data.append([row, *col_r])
         self.pivotdata = pivot_data
         #Deep copy to avoid overwriting pivotdata 
@@ -602,7 +608,7 @@ class Table(object):
             for v in self.vp:
                 cells = []
                 for f in self.aggfunc:
-                    cell = f_aggfunc(group_d[v][row], f, need_sort=True) 
+                    cell = f_aggfunc(group_d[v][row], f, need_sort=True)
                     if cell == None:
                         cell = self.missing_char
                     cells.append(cell)

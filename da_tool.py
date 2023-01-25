@@ -76,6 +76,7 @@ if __name__=='__main__':
     summaryf = args.get('summaryf')
     rowsummary = args.get('rowsummary')
     colsummary = args.get('colsummary')
+    row_share = args.get('row_share')
 
     #topn fields
     topind = args.get('topind')
@@ -149,7 +150,8 @@ if __name__=='__main__':
                   row_k=rowind, col_k=columnind,
                   val_k=valueind, f=aggfunc, summary=summary,
                   heading=heading, summaryf=summaryf, rowsummary=rowsummary,
-                  colsummary=colsummary, skip_rows=skip_rows, action=action)
+                  colsummary=colsummary, skip_rows=skip_rows, action=action,
+                  row_share=row_share)
     elif action == 'group':
         T = Table(src='-', delim=delim, fields=fields, h1=h1,
                   row_k=rowind, val_k=valueind, f=aggfunc, 

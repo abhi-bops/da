@@ -1,5 +1,12 @@
 import argparse
 import sys
+from da_custom import *
+
+custom_functions = []
+global_vars = list(globals().keys())
+for f in global_vars:
+    if f.startswith('f_'):
+        custom_functions.append(f)
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes
@@ -157,6 +164,9 @@ def parse_args():
     pivotgroup.add_argument('--aggfunc', type=str, help="Agg function to use if there are multiple values for the row x column combination. Default is %(default)s",
                             choices=['first', 'last', 'concat', 'max', 'min', 'sum', 'count', 'mean', 'median', 'stdev'],
                             default='first')
+    pivotgroup.add_argument('--row_share', action='store_true',
+                            help="Compute share of results of pivot table within each row.",
+                            default=False)
     pivotgroup.add_argument('--summary', action='store_true',
                             help="Add a summary column using the same agg function, the summary is on the resulting cells with the aggfunc applied on them.",
                             default=False)
@@ -210,12 +220,13 @@ def parse_args():
     transform_function_l = ['add', 'divide', 'div', 'floordiv', 'subtract', 'sub',
                             'multiply', 'mul', 'gt', 'lt', 'ge', 'le', 'eq', 'mod',
                             'sample', 'concat']
+    transform_function_l += custom_functions
     transformgroup = actions.add_parser(name='transform', help="Transform columns by running functions on them")
     for i in ['delim', 'heading', 'skip_rows', 'h1', 'tocsv', 'pipe', 'pipewith', 'fields', 'noheading']:
         transformgroup.add_argument(*args_d[i][0], **args_d[i][1])
     transformgroup.add_argument('--function', action="append", help="""function to run on the field. one field and one action is supported. 
     Format is fieldNumber:function:arguments. fieldNumber is based on the input field number, and numbering starts from 0. 
-    In-built functions are {}. Custom functions from da_custom.py can also be used""".format(transform_function_l), metavar="format")
+    Available functions are {}""".format(transform_function_l), metavar="format")
 
     args = vars(parser.parse_args())
     # If no options are provided, print the help

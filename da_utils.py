@@ -146,7 +146,7 @@ def transpose_rows(rows):
     length = len(rows[0])
     return [list(map(lambda x:x[i], rows)) for i in range(length)]
 
-def f_aggfunc(data, aggfunc, need_sort=False):
+def f_aggfunc(data, aggfunc, need_sort=False, rounding=3):
     """
     Define functions to run on a list.
     Available: first, last, concat, max, min, sum, count, 
@@ -164,6 +164,9 @@ def f_aggfunc(data, aggfunc, need_sort=False):
 
     need_sort: Bool
        Some of the operations expect data to be sorted, this option can be used if needed.
+
+    rounding: int
+       decimal digits to roundoff the results
 
     Returns
     -------
@@ -209,9 +212,9 @@ def f_aggfunc(data, aggfunc, need_sort=False):
         p = int(aggfunc[1:])/100
         return data[int(p*len(data))]
     if aggfunc in ('stddev'):
-        return round(stats.pstdev(data), 2)
+        return round(stats.pstdev(data), rounding)
     if aggfunc in ('diff'):
-        return max(data)-min(data)
+        return round(max(data)-min(data), rounding)
     #If no matches return None
     return None
 
