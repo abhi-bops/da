@@ -13,7 +13,7 @@ Includes "actions" to perform on the tabular data. Each action is associated wit
               Transpose rows into columns
     filter    Filter rows from table based on condition
     sort      Sort table by column fields
-    corr      Sort table by column fields
+    corr      Create correlation matrix with the fields
     summary   Similar to pandas dataframe describe(), gives a statistical summary of the result, All values are treated as continous data
     hist      Get the histogram of the input fields
     pivot     Pivot the input data
@@ -51,17 +51,16 @@ Includes "actions" to perform on the tabular data. Each action is associated wit
 
 ### table
 Pretty print the input data as tables. Columns can be chosen to print. By default, all columns are printed.
-
 No special options exist.
 
 ### transpose
-No special options exist.
+Transpose rows into columns. No special options exist.
 
 ### corr
-No special options exist
+Create correlation matrix with the fields passed in `-f`
 
 ### summary
-No special options exist
+No special options exist. Creates summary with the fields passed in `-f`. Numeric fields have data on count, mean, stddev, min, max, percentiles (5,25,50,75,95,99). Categorical fields have data on unique, count, top1-5 share percents, most, least
 
 ### filter
 ```
@@ -75,6 +74,11 @@ No special options exist
   -k SORT_KEY [SORT_KEY ...], --sort-key SORT_KEY [SORT_KEY ...]
                         Choose the field numbers to sort by. Multiple field numbers can be give. L->R preference
   --desc                Sort by descending order. Default is ascending
+  --numeric             Treat data as numbers
+  --rank-key RANK_KEY [RANK_KEY ...]
+                        Choose the field numbers for which ranking is needed after sorting is complete. Should be a subset of sort keys (-k option)
+  --start-rank START_RANK
+                        Starting Rank number to use
 ```
 
 ### hist
@@ -119,10 +123,11 @@ Format is fN:function:arguments[|function:arguments][=result_column_name]
    Results of first transform will become inputs to second transform funfction
    the second transform functions follows the same rules as the above
  - "=" to rename the resulting column. the default is to use function(fN, arguments)
- 
 
 ```
-  --function format     transform function of the format fN:function_name:arguments[=name_of_result_column]
+  --function format     function to run on the field. one field and one action is supported. Format is fieldNumber:function:arguments. fieldNumber is based on the input field number, and numbering starts from 0. Available functions are ['add',
+                        'divide', 'div', 'floordiv', 'subtract', 'sub', 'multiply', 'mul', 'gt', 'lt', 'ge', 'le', 'eq', 'mod', 'sample', 'concat', 'f_aggfunc', 'f_dummyfunctionfortransform', 'f_share', 'f_normalise', 'f_round', 'f_cumsum',
+                        'f_allsum', 'f_formatunixtime', 'f_shift', 'f_lag', 'f_lead', 'f_diff', 'f_sma', 'f_csvmap', 'f_filemap', 'f_tag']
 ```
 
 ### topn
@@ -144,7 +149,7 @@ Find the top N (limted by -n) items (from -t column) for a group (from -r column
 Group columns (got from -r) and apply the aggregate functions (got from --aagfunc) on the data from columns (got from -v)
 
 ```
-   -r N [N ...], --rowind N [N ...]
+  -r N [N ...], --rowind N [N ...]
                         Position of the data that needs to be used as row index. Starts from 0
   -v N [N ...], --valueind N [N ...]
                         Position of data that needs to be added as value to use on the cell. Starts from 0.
