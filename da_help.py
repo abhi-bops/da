@@ -135,7 +135,7 @@ def parse_args():
                             default=0)
 
     #Correlation opions
-    corrgroup = actions.add_parser(name='corr', help="Sort table by column fields")
+    corrgroup = actions.add_parser(name='corr', help="Create correlation matrix with the fields")
     for i in ['fields', 'tocsv', 'delim', 'pipe', 'pipewith', 'heading', 'skip_rows', 'h1', 'fast', 'rich', 'noheading']:
         corrgroup.add_argument(*args_d[i][0], **args_d[i][1])  
 
