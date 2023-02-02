@@ -124,6 +124,15 @@ def parse_args():
     sortgroup.add_argument('--desc', action='store_true', 
                             help='Sort by descending order. Default is ascending',
                             default=False)
+    sortgroup.add_argument('--numeric', action='store_true', 
+                            help='Treat data as numbers',
+                            default=False)
+    sortgroup.add_argument('--rank-key', type=int, nargs='+', 
+                            help='Choose the field numbers for which ranking is needed after sorting is complete. Should be a subset of sort keys (-k option)',
+                            default=[])
+    sortgroup.add_argument('--start-rank', type=int, 
+                            help='Starting Rank number to use',
+                            default=0)
 
     #Correlation opions
     corrgroup = actions.add_parser(name='corr', help="Sort table by column fields")

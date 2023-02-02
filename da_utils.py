@@ -94,7 +94,7 @@ def convert_float(x):
     try:
         out = float(x)
     except ValueError:
-        return None
+        return nan
     else:
         return out
     

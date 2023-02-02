@@ -68,6 +68,10 @@ class Table(object):
     def add_row(self, row):
         self.data.append(row)
 
+    def add_column(self, column):
+        for n, i in enumerate(column):
+            self.data[n].append(i)
+
     def build_table_from_data(self, data):
         self.data = []
         for info in data[self.skip_rows:]:
@@ -282,11 +286,50 @@ class Table(object):
     def tocsv(self, disable_heading=False):
         self.pipe(delim=',')
 
-    def sort(self, key=None, reverse=True):
+    def rank(self, key=None, reverse=True, numeric=True, start_rank=0):
+        """
+        Ranks elements in the column. Reverse controls sorting order before the 
+        element is ranked. reverse=True sorts data in descending order
+
+        Applies standard competition ranking method - https://en.wikipedia.org/wiki/Ranking
+        """
         if key == None:
             key = [0]
-        self.data = sorted(self.data, key=itemgetter(*key), reverse=reverse)
+        self.data = list(self.data)
+        for k in key:
+            rank = []
+            if numeric:
+                unsorted_data = list(map(lambda x: convert_float(x[k]), self.data))
+            else: 
+                unsorted_data = self.data
+            sorted_data = sorted(unsorted_data, reverse=reverse)
+            for i in unsorted_data:
+                rank.append(sorted_data.index(i)+start_rank)
+            self.add_column(rank)
+            self.heading.append("rank({})".format(self.heading[k]))
 
+    def sort(self, key=None, reverse=True, numeric=True):
+        """
+        Sort data by multiple keys.
+
+        key: list 
+          column field numbers to start sorting from
+
+        reverse: Bool
+          True: Descending sort
+          False: Ascending sort
+
+        numeric: Bool
+          True: treat data in the column as floating point numbers
+          False: treat data in the column as is
+        """
+        if key == None:
+            key = [0]
+        if numeric:
+            self.data = sorted(self.data, key=lambda x : [convert_float(x[k]) for k in key], reverse=reverse)
+        else:
+            self.data = sorted(self.data, key=itemgetter(*key), reverse=reverse)
+    
     def filterfunc(self, pattern):
         """
         format:

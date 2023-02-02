@@ -88,6 +88,9 @@ if __name__=='__main__':
     #Sort fields
     sort_key = args.get('sort_key')
     reverse = args.get('desc')
+    rank_key = args.get('rank_key')
+    numeric = args.get('numeric')
+    start_rank = args.get('start_rank')
 
     #Filter fields
     pattern = args.get('pattern')
@@ -447,7 +450,9 @@ if __name__=='__main__':
     
     #Sorting rows by column
     if action == 'sort':
-        T.sort(key=sort_key, reverse=reverse) 
+        T.sort(key=sort_key, reverse=reverse, numeric=numeric)
+        if len(rank_key) > 0:
+            T.rank(key=rank_key, reverse=reverse, numeric=numeric, start_rank=start_rank)
         if fast:
             print(T.fast_ascii_table())
         elif rich:
